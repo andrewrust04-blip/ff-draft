@@ -1,6 +1,6 @@
 import type { Position } from '../types';
 
-const COLORS: Record<Position, string> = {
+export const POSITION_COLORS: Record<Position, string> = {
   QB: 'var(--pos-qb)',
   RB: 'var(--pos-rb)',
   WR: 'var(--pos-wr)',
@@ -21,8 +21,8 @@ export function PositionBadge({ position }: { position: Position }) {
         fontWeight: 700,
         letterSpacing: '0.03em',
         fontFamily: 'var(--font-mono)',
-        color: '#0f1216',
-        background: COLORS[position],
+        color: '#fff',
+        background: POSITION_COLORS[position],
       }}
     >
       {position}

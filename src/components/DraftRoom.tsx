@@ -1,17 +1,19 @@
 import { useState } from 'react';
+import { Users, ClipboardList, LayoutGrid } from 'lucide-react';
 import { useDraft } from '../state/DraftContext';
 import { DraftHeader } from './DraftHeader';
 import { AvailablePlayers } from './AvailablePlayers';
 import { MyRoster } from './MyRoster';
 import { DraftBoard } from './DraftBoard';
 import { CompletionScreen } from './CompletionScreen';
+import { PickCarousel } from './PickCarousel';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 type MobileTab = 'players' | 'roster' | 'board';
-const TABS: { key: MobileTab; label: string }[] = [
-  { key: 'players', label: 'Players' },
-  { key: 'roster', label: 'My Roster' },
-  { key: 'board', label: 'Board' },
+const TABS: { key: MobileTab; label: string; Icon: typeof Users }[] = [
+  { key: 'players', label: 'Players', Icon: Users },
+  { key: 'roster', label: 'My Roster', Icon: ClipboardList },
+  { key: 'board', label: 'Board', Icon: LayoutGrid },
 ];
 
 export function DraftRoom() {
@@ -21,49 +23,62 @@ export function DraftRoom() {
 
   if (isMobile) {
     return (
-      <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', padding: 10, gap: 8 }}>
-        <div style={{ flexShrink: 0 }}>
+      <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flexShrink: 0, padding: '10px 10px 0' }}>
           <DraftHeader />
         </div>
 
+        <div style={{ flexShrink: 0, padding: '0 10px 6px' }}>
+          <PickCarousel />
+        </div>
+
         {state.status === 'complete' ? (
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '0 10px 10px' }}>
             <CompletionScreen />
           </div>
         ) : (
-          <>
-            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-              {TABS.map((tab) => {
-                const active = tab.key === mobileTab;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setMobileTab(tab.key)}
-                    style={{
-                      flex: 1,
-                      padding: '9px 0',
-                      minHeight: 38,
-                      borderRadius: 'var(--radius-md)',
-                      border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
-                      background: active ? 'var(--accent-glow)' : 'var(--bg-raised)',
-                      color: active ? 'var(--accent)' : 'var(--text-dim)',
-                      fontWeight: 700,
-                      fontSize: 12.5,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-            <div style={{ flex: 1, minHeight: 0 }}>
-              {mobileTab === 'players' && <AvailablePlayers />}
-              {mobileTab === 'roster' && <MyRoster />}
-              {mobileTab === 'board' && <DraftBoard fillHeight />}
-            </div>
-          </>
+          <div style={{ flex: 1, minHeight: 0, padding: '0 10px' }}>
+            {mobileTab === 'players' && <AvailablePlayers />}
+            {mobileTab === 'roster' && <MyRoster />}
+            {mobileTab === 'board' && <DraftBoard fillHeight />}
+          </div>
         )}
+
+        <div
+          style={{
+            flexShrink: 0,
+            display: 'flex',
+            borderTop: '1px solid var(--border)',
+            background: 'var(--bg-raised)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+          }}
+        >
+          {TABS.map(({ key, label, Icon }) => {
+            const active = key === mobileTab;
+            return (
+              <button
+                key={key}
+                onClick={() => setMobileTab(key)}
+                disabled={state.status === 'complete'}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 2,
+                  padding: '8px 0 6px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: active ? 'var(--accent)' : 'var(--text-faint)',
+                  cursor: 'pointer',
+                }}
+              >
+                <Icon size={20} strokeWidth={active ? 2.4 : 2} />
+                <span style={{ fontSize: 10.5, fontWeight: active ? 700 : 500 }}>{label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -75,18 +90,23 @@ export function DraftRoom() {
       {state.status === 'complete' ? (
         <CompletionScreen />
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1.6fr) minmax(280px, 0.9fr)',
-            gap: 16,
-            marginBottom: 16,
-            height: 560,
-          }}
-        >
-          <AvailablePlayers />
-          <MyRoster />
-        </div>
+        <>
+          <div style={{ marginBottom: 16 }}>
+            <PickCarousel />
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1.6fr) minmax(280px, 0.9fr)',
+              gap: 16,
+              marginBottom: 16,
+              height: 560,
+            }}
+          >
+            <AvailablePlayers />
+            <MyRoster />
+          </div>
+        </>
       )}
 
       <DraftBoard />

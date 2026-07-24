@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useDraft } from '../state/DraftContext';
-import { PositionBadge } from './PositionBadge';
+import { PositionBadge, POSITION_COLORS } from './PositionBadge';
 import type { Position } from '../types';
 import { TOTAL_PICKS } from '../types';
 import { teamIndexForPick } from '../draft/snakeOrder';
@@ -9,7 +9,14 @@ import { suggestBestPick } from '../draft/cpuLogic';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 type FilterOption = 'ALL' | Position | 'FLEX';
-const FILTERS: FilterOption[] = ['ALL', 'QB', 'RB', 'WR', 'TE', 'FLEX'];
+const FILTERS: { value: FilterOption; label: string }[] = [
+  { value: 'ALL', label: 'All Pos' },
+  { value: 'QB', label: 'QB' },
+  { value: 'RB', label: 'RB' },
+  { value: 'WR', label: 'WR' },
+  { value: 'TE', label: 'TE' },
+  { value: 'FLEX', label: 'FLEX' },
+];
 const FLEX_ELIGIBLE: Position[] = ['RB', 'WR', 'TE'];
 
 export function AvailablePlayers() {
@@ -47,6 +54,8 @@ export function AvailablePlayers() {
     return suggestBestPick({ availablePlayers: state.availablePlayers, roster: myRoster });
   }, [isUsersTurn, myRoster, state.availablePlayers]);
 
+  const hasActiveFilters = filter !== 'ALL' || query.trim().length > 0;
+
   return (
     <div
       style={{
@@ -60,18 +69,6 @@ export function AvailablePlayers() {
       }}
     >
       <div style={{ padding: isMobile ? '10px 10px 8px' : '16px 18px 12px', borderBottom: '1px solid var(--border)' }}>
-        <div
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            color: 'var(--text-faint)',
-            marginBottom: isMobile ? 8 : 12,
-          }}
-        >
-          Available players
-        </div>
         {suggestedPlayer && (
           <div
             style={{
@@ -88,24 +85,19 @@ export function AvailablePlayers() {
             <PositionBadge position={suggestedPlayer.position} />
             <span style={{ fontSize: isMobile ? 12.5 : 13, color: 'var(--text)', flex: 1, minWidth: 0 }}>
               <strong>Suggested:</strong> {suggestedPlayer.name}
-              {!isMobile && (
-                <span style={{ color: 'var(--text-dim)' }}>
-                  {' '}
-                  ({suggestedPlayer.team}, 2QB #{suggestedPlayer.twoQbRank})
-                </span>
-              )}
+              {!isMobile && <span style={{ color: 'var(--text-dim)' }}> ({suggestedPlayer.team})</span>}
             </span>
             <button
               onClick={() => dispatch({ type: 'DRAFT_PLAYER', playerId: suggestedPlayer.id })}
               style={{
-                padding: isMobile ? '7px 12px' : '5px 12px',
+                padding: isMobile ? '7px 14px' : '5px 14px',
                 minHeight: isMobile ? 30 : undefined,
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: 999,
                 border: 'none',
                 background: 'var(--accent)',
-                color: '#0f1216',
+                color: '#08110b',
                 fontWeight: 700,
-                fontSize: isMobile ? 12 : 12,
+                fontSize: 12,
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
               }}
@@ -129,43 +121,70 @@ export function AvailablePlayers() {
             marginBottom: 8,
           }}
         />
-        <div style={{ display: 'flex', gap: 5, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-          {FILTERS.map((f) => {
-            const active = f === filter;
-            return (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                style={{
-                  flex: isMobile ? '1 0 30%' : 1,
-                  padding: isMobile ? '6px 0' : '7px 0',
-                  minHeight: isMobile ? 28 : undefined,
-                  borderRadius: 'var(--radius-sm)',
-                  border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
-                  background: active ? 'var(--accent-glow)' : 'var(--bg-card)',
-                  color: active ? 'var(--accent)' : 'var(--text-dim)',
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  fontFamily: 'var(--font-mono)',
-                  cursor: 'pointer',
-                }}
-              >
-                {f}
-              </button>
-            );
-          })}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ position: 'relative', flex: 1, maxWidth: 160 }}>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as FilterOption)}
+              style={{
+                width: '100%',
+                appearance: 'none',
+                WebkitAppearance: 'none',
+                MozAppearance: 'none',
+                padding: '7px 26px 7px 12px',
+                borderRadius: 999,
+                border: '1px solid var(--border-strong)',
+                background: 'var(--bg-card)',
+                color: 'var(--link)',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {FILTERS.map((f) => (
+                <option key={f.value} value={f.value} style={{ color: '#000' }}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+            <span
+              style={{
+                position: 'absolute',
+                right: 10,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'none',
+                fontSize: 10,
+                color: 'var(--link)',
+              }}
+            >
+              &#9662;
+            </span>
+          </div>
+          {hasActiveFilters && (
+            <button
+              onClick={() => {
+                setFilter('ALL');
+                setQuery('');
+              }}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: 'var(--link)',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                padding: 0,
+              }}
+            >
+              Reset
+            </button>
+          )}
         </div>
       </div>
 
       <div style={{ overflowY: 'auto', overflowX: 'hidden', flex: 1 }}>
-        <table
-          style={{
-            width: '100%',
-            tableLayout: isMobile ? 'fixed' : undefined,
-            borderCollapse: 'collapse',
-            fontSize: isMobile ? 14 : 13,
-          }}
-        >
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: isMobile ? 14 : 13 }}>
           <thead>
             <tr
               style={{
@@ -175,17 +194,13 @@ export function AvailablePlayers() {
                 zIndex: 1,
               }}
             >
-              {!isMobile && filter === 'FLEX' && <Th align="right">FLEX #</Th>}
-              {!isMobile && <Th align="right">2QB</Th>}
-              {!isMobile && <Th align="right">ESPN</Th>}
+              <Th align="right">RK</Th>
               <Th>Player</Th>
-              <Th>Pos</Th>
-              {!isMobile && <Th>Team</Th>}
               <Th align="right"> </Th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((p, i) => {
+            {filtered.map((p) => {
               const isSuggested = suggestedPlayer?.id === p.id;
               const qbCapBlocked = !!myRoster && !isPositionEligible(myRoster, p.position);
               const canDraft = isUsersTurn && !qbCapBlocked;
@@ -197,50 +212,36 @@ export function AvailablePlayers() {
                     background: isSuggested ? 'var(--accent-glow)' : undefined,
                   }}
                 >
-                  {!isMobile && filter === 'FLEX' && (
-                    <Td align="right" mono>
-                      {i + 1}
-                    </Td>
-                  )}
-                  {!isMobile && (
-                    <Td align="right" mono>
-                      {p.twoQbRank}
-                    </Td>
-                  )}
-                  {!isMobile && (
-                    <Td align="right" mono dim>
-                      {p.espnRank}
-                    </Td>
-                  )}
-                  <Td truncate={isMobile}>
-                    {isMobile ? (
-                      <>
-                        {p.name}
-                        <span style={{ color: 'var(--text-faint)', fontSize: 12 }}> {p.team}</span>
-                      </>
-                    ) : (
-                      p.name
-                    )}
+                  <Td align="right" mono dim>
+                    {p.twoQbRank}
                   </Td>
                   <Td>
-                    <PositionBadge position={p.position} />
+                    <div style={{ color: 'var(--link)', fontWeight: 600, fontSize: isMobile ? 14 : 13.5 }}>
+                      {p.name}
+                    </div>
+                    <div style={{ fontSize: 11.5, marginTop: 1 }}>
+                      <span style={{ color: 'var(--text-faint)' }}>{p.team}</span>{' '}
+                      <span style={{ color: POSITION_COLORS[p.position], fontWeight: 700 }}>
+                        {p.position}
+                      </span>
+                    </div>
                   </Td>
-                  {!isMobile && <Td dim>{p.team}</Td>}
                   <Td align="right">
                     <button
                       disabled={!canDraft}
                       title={qbCapBlocked ? 'QB limit reached (3 max)' : undefined}
                       onClick={() => dispatch({ type: 'DRAFT_PLAYER', playerId: p.id })}
                       style={{
-                        padding: isMobile ? '8px 10px' : '5px 12px',
+                        padding: isMobile ? '8px 14px' : '5px 14px',
                         minHeight: isMobile ? 34 : undefined,
-                        borderRadius: 'var(--radius-sm)',
-                        border: 'none',
-                        background: canDraft ? 'var(--accent)' : 'var(--bg-card)',
-                        color: canDraft ? '#0f1216' : 'var(--text-faint)',
+                        borderRadius: 999,
+                        border: canDraft ? 'none' : '1px solid var(--border-strong)',
+                        background: canDraft ? 'var(--accent)' : 'transparent',
+                        color: canDraft ? '#08110b' : 'var(--text-faint)',
                         fontWeight: 700,
-                        fontSize: isMobile ? 12 : 12,
+                        fontSize: 12,
                         cursor: canDraft ? 'pointer' : 'not-allowed',
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       Draft
@@ -251,10 +252,7 @@ export function AvailablePlayers() {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td
-                  colSpan={filter === 'FLEX' ? 7 : 6}
-                  style={{ padding: 24, textAlign: 'center', color: 'var(--text-faint)' }}
-                >
+                <td colSpan={3} style={{ padding: 24, textAlign: 'center', color: 'var(--text-faint)' }}>
                   No players match this search.
                 </td>
               </tr>
@@ -267,12 +265,11 @@ export function AvailablePlayers() {
 }
 
 function Th({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'right' }) {
-  const isMobile = useIsMobile();
   return (
     <th
       style={{
         textAlign: align,
-        padding: isMobile ? '8px 6px' : '8px 10px',
+        padding: '8px 10px',
         fontSize: 11,
         color: 'var(--text-faint)',
         fontWeight: 600,
@@ -291,26 +288,20 @@ function Td({
   align = 'left',
   mono = false,
   dim = false,
-  truncate = false,
 }: {
   children: React.ReactNode;
   align?: 'left' | 'right';
   mono?: boolean;
   dim?: boolean;
-  truncate?: boolean;
 }) {
-  const isMobile = useIsMobile();
   return (
     <td
       style={{
         textAlign: align,
-        padding: isMobile ? '8px 6px' : '8px 10px',
+        padding: '8px 10px',
         fontFamily: mono ? 'var(--font-mono)' : undefined,
         color: dim ? 'var(--text-dim)' : 'var(--text)',
-        whiteSpace: 'nowrap',
-        overflow: truncate ? 'hidden' : undefined,
-        textOverflow: truncate ? 'ellipsis' : undefined,
-        maxWidth: truncate ? 0 : undefined,
+        verticalAlign: 'middle',
       }}
     >
       {children}

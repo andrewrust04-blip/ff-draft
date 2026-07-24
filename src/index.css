@@ -1,23 +1,25 @@
 :root {
-  --bg: #0f1216;
-  --bg-raised: #171b21;
-  --bg-card: #1c2129;
-  --bg-card-hover: #232934;
-  --border: #2a3038;
-  --border-strong: #3a414c;
+  --bg: #0a0c10;
+  --bg-raised: #14171d;
+  --bg-card: #1a1e25;
+  --bg-card-hover: #21262f;
+  --border: #262b34;
+  --border-strong: #383e49;
 
-  --text: #eef1f5;
+  --text: #f2f4f7;
   --text-dim: #9aa4b2;
-  --text-faint: #626b78;
+  --text-faint: #5c6470;
 
   --accent: #3ecf6e;
   --accent-dim: #2a9950;
-  --accent-glow: rgba(62, 207, 110, 0.18);
+  --accent-glow: rgba(62, 207, 110, 0.16);
 
-  --pos-qb: #f2b84b;
-  --pos-rb: #4bc9f2;
-  --pos-wr: #6ee7a8;
-  --pos-te: #d488f0;
+  --link: #4da3ff;
+
+  --pos-qb: #e8536b;
+  --pos-rb: #f2934c;
+  --pos-wr: #3fa9f5;
+  --pos-te: #b073e0;
 
   --danger: #e2586a;
   --danger-dim: #c2455a;
@@ -58,7 +60,7 @@ button {
   touch-action: manipulation;
 }
 
-input {
+input, select {
   font-family: inherit;
 }
 
@@ -66,6 +68,16 @@ input {
    scrollable panels on iOS. */
 * {
   -webkit-overflow-scrolling: touch;
+}
+
+/* Utility for horizontally-scrolling strips (pick carousel) that shouldn't
+   show a visible scrollbar, matching native app carousels. */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 ::selection {
