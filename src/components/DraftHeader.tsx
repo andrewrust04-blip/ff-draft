@@ -23,21 +23,21 @@ export function DraftHeader() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: isMobile ? '12px 14px' : '14px 20px',
+        padding: isMobile ? '10px 12px' : '14px 20px',
         background: 'var(--bg-raised)',
         border: '1px solid var(--border)',
         borderRadius: 'var(--radius-lg)',
-        marginBottom: isMobile ? 10 : 16,
+        marginBottom: isMobile ? 8 : 16,
         flexWrap: 'wrap',
-        gap: 12,
+        gap: 8,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <div>
           <div
             style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: 11,
+              fontSize: 10,
               color: 'var(--text-faint)',
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
@@ -45,19 +45,19 @@ export function DraftHeader() {
           >
             {isComplete ? 'Draft complete' : `Round ${round}`}
           </div>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: isMobile ? 19 : 22, fontWeight: 700 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: isMobile ? 16 : 22, fontWeight: 700 }}>
             {isComplete ? `${TOTAL_PICKS} picks made` : `Pick ${state.currentPick} of ${TOTAL_PICKS}`}
           </div>
         </div>
         {onTheClockTeam && (
           <div
             style={{
-              padding: '6px 14px',
+              padding: isMobile ? '4px 10px' : '6px 14px',
               borderRadius: 'var(--radius-md)',
               background: onTheClockTeam.isUser ? 'var(--accent-glow)' : 'var(--bg-card)',
               color: onTheClockTeam.isUser ? 'var(--accent)' : 'var(--text-dim)',
               fontWeight: 700,
-              fontSize: 13,
+              fontSize: isMobile ? 11.5 : 13,
             }}
           >
             On the clock: {onTheClockTeam.name}
@@ -66,7 +66,7 @@ export function DraftHeader() {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, width: isMobile ? '100%' : undefined }}>
+      <div style={{ display: 'flex', gap: 6, width: isMobile ? '100%' : undefined }}>
         {state.cpuPaused ? (
           <ControlButton onClick={() => dispatch({ type: 'RESUME_CPU' })} disabled={isComplete}>
             Resume
@@ -107,15 +107,15 @@ function ControlButton({
       onClick={onClick}
       disabled={disabled}
       style={{
-        padding: isMobile ? '11px 14px' : '9px 16px',
-        minHeight: isMobile ? 44 : undefined,
+        padding: isMobile ? '8px 10px' : '9px 16px',
+        minHeight: isMobile ? 34 : undefined,
         flex: isMobile ? 1 : undefined,
         borderRadius: 'var(--radius-md)',
         border: `1px solid ${variant === 'danger' ? 'var(--danger-dim)' : 'var(--border)'}`,
         background: disabled ? 'var(--bg-card)' : 'var(--bg-card-hover)',
         color: disabled ? 'var(--text-faint)' : variant === 'danger' ? 'var(--danger)' : 'var(--text)',
         fontWeight: 600,
-        fontSize: 13,
+        fontSize: isMobile ? 11.5 : 13,
         cursor: disabled ? 'not-allowed' : 'pointer',
       }}
     >

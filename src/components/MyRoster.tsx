@@ -18,11 +18,11 @@ export function MyRoster() {
         borderRadius: 'var(--radius-lg)',
         display: 'flex',
         flexDirection: 'column',
-        height: isMobile ? '50vh' : '100%',
+        height: '100%',
         minHeight: 0,
       }}
     >
-      <div style={{ padding: '16px 18px 12px', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ padding: isMobile ? '10px 10px 8px' : '16px 18px 12px', borderBottom: '1px solid var(--border)' }}>
         <div
           style={{
             fontSize: 12,
@@ -30,7 +30,7 @@ export function MyRoster() {
             letterSpacing: '0.06em',
             textTransform: 'uppercase',
             color: 'var(--text-faint)',
-            marginBottom: 10,
+            marginBottom: isMobile ? 6 : 10,
           }}
         >
           My roster
@@ -43,7 +43,7 @@ export function MyRoster() {
         </div>
       </div>
 
-      <div style={{ overflowY: 'auto', flex: 1, padding: '8px 12px 16px' }}>
+      <div style={{ overflowY: 'auto', flex: 1, padding: isMobile ? '6px 10px 12px' : '8px 12px 16px' }}>
         <SlotGroup label="Starters" slots={STARTING_SLOTS} roster={myTeam.roster} />
         <SlotGroup label="Bench" slots={BENCH_SLOTS} roster={myTeam.roster} />
       </div>

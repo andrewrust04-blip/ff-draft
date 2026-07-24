@@ -10,7 +10,7 @@ function overallPickFor(round: number, teamIndex: number): number {
   return roundZero * TOTAL_TEAMS + slotInRound + 1;
 }
 
-export function DraftBoard() {
+export function DraftBoard({ fillHeight = false }: { fillHeight?: boolean }) {
   const { state } = useDraft();
   const isMobile = useIsMobile();
 
@@ -23,9 +23,12 @@ export function DraftBoard() {
         border: '1px solid var(--border)',
         borderRadius: 'var(--radius-lg)',
         overflow: 'hidden',
+        height: fillHeight ? '100%' : undefined,
+        display: fillHeight ? 'flex' : undefined,
+        flexDirection: fillHeight ? 'column' : undefined,
       }}
     >
-      <div style={{ padding: isMobile ? '12px 14px 8px' : '14px 18px 10px' }}>
+      <div style={{ padding: isMobile ? '10px 12px 8px' : '14px 18px 10px', flexShrink: 0 }}>
         <div
           style={{
             fontSize: 12,
@@ -38,7 +41,15 @@ export function DraftBoard() {
           Draft board
         </div>
       </div>
-      <div style={{ overflowX: 'auto', paddingBottom: 12 }}>
+      <div
+        style={{
+          overflowX: 'auto',
+          overflowY: fillHeight ? 'auto' : undefined,
+          flex: fillHeight ? 1 : undefined,
+          minHeight: fillHeight ? 0 : undefined,
+          paddingBottom: 12,
+        }}
+      >
         <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: isMobile ? 760 : 980 }}>
           <thead>
             <tr>
@@ -46,6 +57,8 @@ export function DraftBoard() {
                 style={{
                   position: 'sticky',
                   left: 0,
+                  top: 0,
+                  zIndex: 2,
                   background: 'var(--bg-raised)',
                   width: 36,
                   padding: '6px 6px',
@@ -60,6 +73,10 @@ export function DraftBoard() {
                 <th
                   key={team.index}
                   style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 1,
+                    background: 'var(--bg-raised)',
                     padding: '8px 6px',
                     fontSize: 11.5,
                     fontWeight: 700,
