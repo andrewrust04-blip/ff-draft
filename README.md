@@ -60,11 +60,21 @@ npm run build
 
 ## Player data
 
-`src/data/players.ts` contains 260 skill-position players (QB/RB/WR/TE) extracted
-directly from the attached ESPN 2026 PPR Top 300 Cheat Sheet. **K and D/ST entries
-from the source PDF were intentionally left out**, since this league format has no
-kicker or defense roster spots. Every player keeps their original `espnRank` and
-`espnPositionRank` exactly as printed — these are never modified.
+`src/data/players.ts` contains 268 skill-position players (QB/RB/WR/TE), based
+on the attached ESPN 2026 PPR Top 300 Cheat Sheet. **K and D/ST entries from the
+source PDF were intentionally left out**, since this league format has no kicker
+or defense roster spots. RB/WR/TE `espnRank`/`espnPositionRank` are exactly as
+ESPN printed them — never modified.
+
+**QBs are the one exception.** All 40 QBs' `espnRank` and `espnPositionRank`
+were overwritten to match a separate, more accurate/current QB rankings source
+(not ESPN's own QB order), since that's what league mates actually reference
+for mock drafts. 8 QBs absent from the original ESPN PDF extraction (Ty Simpson,
+Michael Penix, J.J. McCarthy, Shedeur Sanders, Mac Jones, Anthony Richardson,
+Justin Fields, Garrett Nussmeier) were added to support this. Deshaun Watson
+wasn't in the new source, so his original ESPN-derived rank was left as-is.
+The 2-QB tier-boost logic downstream is unaffected — it just now operates on
+this QB order instead of ESPN's.
 
 ## 2-QB Rank logic (tunable)
 
