@@ -32,17 +32,18 @@ export function DraftRoom() {
           <PickCarousel />
         </div>
 
-        {state.status === 'complete' ? (
-          <div style={{ flex: 1, overflowY: 'auto', padding: '0 10px 10px' }}>
-            <CompletionScreen />
-          </div>
-        ) : (
-          <div style={{ flex: 1, minHeight: 0, padding: '0 10px' }}>
-            {mobileTab === 'players' && <AvailablePlayers />}
-            {mobileTab === 'roster' && <MyRoster />}
-            {mobileTab === 'board' && <DraftBoard fillHeight />}
-          </div>
-        )}
+        <div style={{ flex: 1, minHeight: 0, padding: '0 10px' }}>
+          {mobileTab === 'players' &&
+            (state.status === 'complete' ? (
+              <div style={{ height: '100%', overflowY: 'auto' }}>
+                <CompletionScreen />
+              </div>
+            ) : (
+              <AvailablePlayers />
+            ))}
+          {mobileTab === 'roster' && <MyRoster />}
+          {mobileTab === 'board' && <DraftBoard fillHeight />}
+        </div>
 
         <div
           style={{
@@ -59,7 +60,6 @@ export function DraftRoom() {
               <button
                 key={key}
                 onClick={() => setMobileTab(key)}
-                disabled={state.status === 'complete'}
                 style={{
                   flex: 1,
                   display: 'flex',

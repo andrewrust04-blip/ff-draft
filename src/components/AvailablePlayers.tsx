@@ -10,7 +10,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 
 type FilterOption = 'ALL' | Position | 'FLEX';
 const FILTERS: { value: FilterOption; label: string }[] = [
-  { value: 'ALL', label: 'All Pos' },
+  { value: 'ALL', label: 'All' },
   { value: 'QB', label: 'QB' },
   { value: 'RB', label: 'RB' },
   { value: 'WR', label: 'WR' },
@@ -121,46 +121,32 @@ export function AvailablePlayers() {
             marginBottom: 8,
           }}
         />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ position: 'relative', flex: 1, maxWidth: 160 }}>
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as FilterOption)}
-              style={{
-                width: '100%',
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                MozAppearance: 'none',
-                padding: '7px 26px 7px 12px',
-                borderRadius: 999,
-                border: '1px solid var(--border-strong)',
-                background: 'var(--bg-card)',
-                color: 'var(--link)',
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              {FILTERS.map((f) => (
-                <option key={f.value} value={f.value} style={{ color: '#000' }}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-            <span
-              style={{
-                position: 'absolute',
-                right: 10,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                pointerEvents: 'none',
-                fontSize: 10,
-                color: 'var(--link)',
-              }}
-            >
-              &#9662;
-            </span>
-          </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
+          {FILTERS.map((f) => {
+            const active = f.value === filter;
+            return (
+              <button
+                key={f.value}
+                onClick={() => setFilter(f.value)}
+                style={{
+                  flex: '1 0 auto',
+                  minWidth: 44,
+                  padding: '5px 8px',
+                  minHeight: 26,
+                  borderRadius: 999,
+                  border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+                  background: active ? 'var(--accent-glow)' : 'var(--bg-card)',
+                  color: active ? 'var(--accent)' : 'var(--text-dim)',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {f.label}
+              </button>
+            );
+          })}
           {hasActiveFilters && (
             <button
               onClick={() => {
@@ -168,13 +154,14 @@ export function AvailablePlayers() {
                 setQuery('');
               }}
               style={{
+                marginLeft: 4,
                 border: 'none',
                 background: 'transparent',
                 color: 'var(--link)',
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: 600,
                 cursor: 'pointer',
-                padding: 0,
+                padding: '5px 2px',
               }}
             >
               Reset

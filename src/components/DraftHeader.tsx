@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react';
+import { Settings, Pause, Play, Undo2, RotateCcw } from 'lucide-react';
 import { useDraft } from '../state/DraftContext';
 import { TOTAL_PICKS } from '../types';
 import { roundForPick, teamIndexForPick } from '../draft/snakeOrder';
@@ -6,6 +8,8 @@ import { useIsMobile } from '../hooks/useIsMobile';
 export function DraftHeader() {
   const { state, dispatch } = useDraft();
   const isMobile = useIsMobile();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const pickNum = Math.min(state.currentPick, TOTAL_PICKS);
   const round = roundForPick(pickNum);
@@ -16,6 +20,17 @@ export function DraftHeader() {
 
   const canUndo = state.picks.length > 0;
   const isComplete = state.status === 'complete';
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [menuOpen]);
 
   return (
     <div
@@ -30,6 +45,7 @@ export function DraftHeader() {
         marginBottom: isMobile ? 8 : 16,
         flexWrap: 'wrap',
         gap: 8,
+        position: 'relative',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -66,60 +82,123 @@ export function DraftHeader() {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 6, width: isMobile ? '100%' : undefined }}>
-        {state.cpuPaused ? (
-          <ControlButton onClick={() => dispatch({ type: 'RESUME_CPU' })} disabled={isComplete}>
-            Resume
-          </ControlButton>
-        ) : (
-          <ControlButton onClick={() => dispatch({ type: 'PAUSE_CPU' })} disabled={isComplete}>
-            Pause
-          </ControlButton>
-        )}
-        <ControlButton onClick={() => dispatch({ type: 'UNDO_PICK' })} disabled={!canUndo}>
-          Undo
-        </ControlButton>
-        <ControlButton
-          onClick={() => dispatch({ type: 'RESTART_DRAFT' })}
-          variant="danger"
+      <div ref={menuRef} style={{ position: 'relative' }}>
+        <button
+          onClick={() => setMenuOpen((o) => !o)}
+          aria-label="Draft settings"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: isMobile ? 34 : 38,
+            height: isMobile ? 34 : 38,
+            borderRadius: '50%',
+            border: '1px solid var(--border)',
+            background: menuOpen ? 'var(--bg-card-hover)' : 'var(--bg-card)',
+            color: 'var(--text-dim)',
+            cursor: 'pointer',
+          }}
         >
-          Restart
-        </ControlButton>
+          <Settings size={isMobile ? 17 : 19} />
+        </button>
+
+        {menuOpen && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '100%',
+              right: 0,
+              marginTop: 8,
+              width: 168,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-md)',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+              overflow: 'hidden',
+              zIndex: 20,
+            }}
+          >
+            {state.cpuPaused ? (
+              <MenuItem
+                icon={<Play size={16} />}
+                label="Resume"
+                disabled={isComplete}
+                onClick={() => {
+                  dispatch({ type: 'RESUME_CPU' });
+                  setMenuOpen(false);
+                }}
+              />
+            ) : (
+              <MenuItem
+                icon={<Pause size={16} />}
+                label="Pause"
+                disabled={isComplete}
+                onClick={() => {
+                  dispatch({ type: 'PAUSE_CPU' });
+                  setMenuOpen(false);
+                }}
+              />
+            )}
+            <MenuItem
+              icon={<Undo2 size={16} />}
+              label="Undo pick"
+              disabled={!canUndo}
+              onClick={() => {
+                dispatch({ type: 'UNDO_PICK' });
+                setMenuOpen(false);
+              }}
+            />
+            <MenuItem
+              icon={<RotateCcw size={16} />}
+              label="Restart"
+              danger
+              onClick={() => {
+                dispatch({ type: 'RESTART_DRAFT' });
+                setMenuOpen(false);
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function ControlButton({
-  children,
+function MenuItem({
+  icon,
+  label,
   onClick,
   disabled = false,
-  variant = 'default',
+  danger = false,
 }: {
-  children: React.ReactNode;
+  icon: React.ReactNode;
+  label: string;
   onClick: () => void;
   disabled?: boolean;
-  variant?: 'default' | 'danger';
+  danger?: boolean;
 }) {
-  const isMobile = useIsMobile();
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       style={{
-        padding: isMobile ? '8px 10px' : '9px 16px',
-        minHeight: isMobile ? 34 : undefined,
-        flex: isMobile ? 1 : undefined,
-        borderRadius: 'var(--radius-md)',
-        border: `1px solid ${variant === 'danger' ? 'var(--danger-dim)' : 'var(--border)'}`,
-        background: disabled ? 'var(--bg-card)' : 'var(--bg-card-hover)',
-        color: disabled ? 'var(--text-faint)' : variant === 'danger' ? 'var(--danger)' : 'var(--text)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        width: '100%',
+        padding: '10px 14px',
+        border: 'none',
+        borderBottom: '1px solid var(--border)',
+        background: 'transparent',
+        color: disabled ? 'var(--text-faint)' : danger ? 'var(--danger)' : 'var(--text)',
+        fontSize: 13.5,
         fontWeight: 600,
-        fontSize: isMobile ? 11.5 : 13,
         cursor: disabled ? 'not-allowed' : 'pointer',
+        textAlign: 'left',
       }}
     >
-      {children}
+      {icon}
+      {label}
     </button>
   );
 }

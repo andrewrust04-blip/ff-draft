@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Crosshair } from 'lucide-react';
 import { useDraft } from '../state/DraftContext';
 import { POSITION_COLORS } from './PositionBadge';
 import { TOTAL_PICKS } from '../types';
@@ -7,14 +8,34 @@ import { roundForPick, teamIndexForPick } from '../draft/snakeOrder';
 export function PickCarousel() {
   const { state } = useDraft();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [showRecenter, setShowRecenter] = useState(false);
 
   const pickByOverall = new Map(state.picks.map((p) => [p.overallPick, p]));
   const focusPick = Math.min(state.currentPick, TOTAL_PICKS);
 
-  useEffect(() => {
+  const scrollToCurrent = (behavior: ScrollBehavior = 'smooth') => {
     const el = containerRef.current?.querySelector<HTMLElement>(`[data-pick="${focusPick}"]`);
-    el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    el?.scrollIntoView({ behavior, inline: 'center', block: 'nearest' });
+  };
+
+  // Auto-follow the draft: recenter on the current pick whenever it advances.
+  useEffect(() => {
+    scrollToCurrent('smooth');
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusPick]);
+
+  // Show a "back to current pick" button once the user scrolls the current
+  // pick card out of view (matches ESPN's crosshair recenter button).
+  useEffect(() => {
+    const container = containerRef.current;
+    const target = container?.querySelector<HTMLElement>(`[data-pick="${focusPick}"]`);
+    if (!container || !target) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowRecenter(!entry.isIntersecting),
+      { root: container, threshold: 0.98 }
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
   }, [focusPick]);
 
   const items: React.ReactNode[] = [];
@@ -119,17 +140,58 @@ export function PickCarousel() {
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="hide-scrollbar"
-      style={{
-        display: 'flex',
-        gap: 6,
-        overflowX: 'auto',
-        padding: '2px 2px 4px',
-      }}
-    >
-      {items}
+    <div style={{ position: 'relative' }}>
+      <div
+        ref={containerRef}
+        className="hide-scrollbar"
+        style={{
+          display: 'flex',
+          gap: 6,
+          overflowX: 'auto',
+          padding: '2px 2px 4px',
+        }}
+      >
+        {items}
+      </div>
+
+      {showRecenter && (
+        <>
+          <div
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: 0,
+              bottom: 4,
+              width: 44,
+              background: 'linear-gradient(to right, transparent, var(--bg) 70%)',
+              pointerEvents: 'none',
+            }}
+          />
+          <button
+            onClick={() => scrollToCurrent('smooth')}
+            aria-label="Jump to current pick"
+            style={{
+              position: 'absolute',
+              right: 2,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 30,
+              height: 30,
+              borderRadius: '50%',
+              border: '1px solid var(--accent)',
+              background: 'var(--bg-card)',
+              color: 'var(--accent)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+            }}
+          >
+            <Crosshair size={16} />
+          </button>
+        </>
+      )}
     </div>
   );
 }
