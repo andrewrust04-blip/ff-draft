@@ -4,46 +4,69 @@
 // This is the ONE file responsible for turning the raw player pool into a
 // "2-QB Rank" appropriate for a 2-QB starting league.
 //
-// How it works:
-//   1. RB / WR / TE players use their original ESPN rank as their merge
-//      score, so their relative order to each other never changes.
-//   2. QBs use their `espnRank` field too - but remember, per players.ts,
-//      that field was already overwritten for all 40 QBs to reflect the
-//      dedicated 2-QB-relevant QB rankings source (not ESPN's own QB order).
-//      So a QB's espnRank IS the correct 2-QB-adjusted value already; no
-//      further formula is applied on top of it.
-//   3. Every player (QB and non-QB) is sorted by that single score ascending,
-//      and the result is numbered 1..N to produce the final "2-QB Rank".
-//      Skill players fall naturally into the gaps left as QBs move up the
-//      board, since RB/WR/TE numbers are untouched.
+// How it works - QBs' espnRank values are RESERVED SLOTS in the final order,
+// not just sort keys:
+//   1. QBs are queued in ascending order of their (already-overridden)
+//      espnRank - see players.ts, where all 40 QBs' espnRank/espnPositionRank
+//      were set from the dedicated 2-QB-relevant QB rankings source.
+//   2. RB/WR/TE players are queued separately, in ascending order of their
+//      own (untouched) ESPN rank.
+//   3. We walk final positions 1, 2, 3, ... one at a time. At each position,
+//      if the next queued QB's espnRank is <= that position number, the QB
+//      is placed there. Otherwise the next queued skill player is placed.
+//   This means a QB's final twoQbRank always exactly equals its espnRank
+//   (skill players never bump a QB later than its own number) - skill
+//   players simply thread through whatever slots the QBs don't occupy, in
+//   their own relative order.
 //
-// History: an earlier version of this file re-derived a QB's target score
-// from a tier-interpolation formula (QB position rank -> target overall-rank
-// range), ignoring the QB's actual espnRank for position ranks 1-24. That
-// caused drift between the QB rankings source and what actually showed up
-// in the draft (e.g. Drake Maye's real rank of 3 was overridden to ~5). Since
-// every QB already has a correct, current espnRank baked in, that formula
-// was retired - it was solving a problem that no longer exists.
+// History: earlier versions of this file either ran QBs through a
+// tier-interpolation formula, or did a plain value merge-sort with ties
+// broken alphabetically. Both let skill players push a QB's final position
+// later than the number that was actually assigned to it (e.g. Jalen Hurts'
+// assigned rank of 25 was coming out as 33). The reserved-slot approach
+// above guarantees that can't happen.
 // =============================================================================
 
 import type { Player, RankedPlayer } from '../types';
 
+function byEspnRank(a: Player, b: Player): number {
+  if (a.espnRank !== b.espnRank) return a.espnRank - b.espnRank;
+  return a.name.localeCompare(b.name);
+}
+
 /**
  * Computes the 2-QB Rank for every player. Original ESPN rank is preserved
  * on the returned objects (espnRank field is untouched); twoQbRank is added.
- *
- * Every player - QB or not - is merged directly by espnRank. This is safe
- * because QBs' espnRank values were already overwritten at the data-entry
- * level (src/data/players.ts) to reflect the correct 2-QB-adjusted order.
  */
 export function computeTwoQbRankings(allPlayers: Player[]): RankedPlayer[] {
-  const sorted = [...allPlayers].sort((a, b) => {
-    if (a.espnRank !== b.espnRank) return a.espnRank - b.espnRank;
-    // Stable, deterministic tiebreaker for any duplicate rank values.
-    return a.name.localeCompare(b.name);
-  });
+  const qbQueue = allPlayers.filter((p) => p.position === 'QB').sort(byEspnRank);
+  const skillQueue = allPlayers.filter((p) => p.position !== 'QB').sort(byEspnRank);
 
-  return sorted.map((player, index) => ({
+  const merged: Player[] = [];
+  let qbIdx = 0;
+  let skillIdx = 0;
+  let position = 1;
+
+  while (qbIdx < qbQueue.length || skillIdx < skillQueue.length) {
+    const nextQb = qbQueue[qbIdx];
+    const nextSkill = skillQueue[skillIdx];
+
+    if (nextQb && nextQb.espnRank <= position) {
+      merged.push(nextQb);
+      qbIdx++;
+    } else if (nextSkill) {
+      merged.push(nextSkill);
+      skillIdx++;
+    } else if (nextQb) {
+      // Only QBs left (their reserved slot exceeds the remaining count of
+      // skill players) - append them in order.
+      merged.push(nextQb);
+      qbIdx++;
+    }
+    position++;
+  }
+
+  return merged.map((player, index) => ({
     ...player,
     twoQbRank: index + 1,
   }));
