@@ -27,6 +27,7 @@ export function AvailablePlayers() {
 
   const isUsersTurn =
     state.status === 'in-progress' &&
+    !state.awaitingStart &&
     state.currentPick <= TOTAL_PICKS &&
     teamIndexForPick(state.currentPick) === state.userTeamIndex;
 

@@ -7,6 +7,7 @@ import { MyRoster } from './MyRoster';
 import { DraftBoard } from './DraftBoard';
 import { CompletionScreen } from './CompletionScreen';
 import { PickCarousel } from './PickCarousel';
+import { DraftReadyGate } from './DraftReadyGate';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 type MobileTab = 'players' | 'roster' | 'board';
@@ -24,6 +25,7 @@ export function DraftRoom() {
   if (isMobile) {
     return (
       <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column' }}>
+        {state.awaitingStart && <DraftReadyGate />}
         <div style={{ flexShrink: 0, padding: '10px 10px 0' }}>
           <DraftHeader />
         </div>
@@ -85,6 +87,7 @@ export function DraftRoom() {
 
   return (
     <div style={{ padding: 20, maxWidth: 1400, margin: '0 auto' }}>
+      {state.awaitingStart && <DraftReadyGate />}
       <DraftHeader />
 
       {state.status === 'complete' ? (

@@ -18,6 +18,15 @@ export interface DraftState {
   picks: DraftPick[];
   currentPick: number; // 1-based; > TOTAL_PICKS means draft complete
   cpuPaused: boolean;
+  /**
+   * True right after START_DRAFT/RESTART_DRAFT, before the user has clicked
+   * "Start the draft" in the draft room. While true, the CPU auto-pick timer
+   * stays off and the user can't draft either - this gives everyone a real
+   * beat to look at the board before any picks (CPU or otherwise) start
+   * firing, no matter which slot the user drafts from. Separate from
+   * cpuPaused, which is the user-triggered Pause/Resume toggle mid-draft.
+   */
+  awaitingStart: boolean;
 }
 
 export function createInitialTeams(userTeamIndex: number): TeamState[] {
@@ -39,11 +48,13 @@ export function createInitialState(allPlayers: RankedPlayer[]): DraftState {
     picks: [],
     currentPick: 1,
     cpuPaused: false,
+    awaitingStart: false,
   };
 }
 
 export type DraftAction =
   | { type: 'START_DRAFT'; userTeamIndex: number }
+  | { type: 'BEGIN_DRAFT' }
   | { type: 'DRAFT_PLAYER'; playerId: string }
   | { type: 'UNDO_PICK' }
   | { type: 'RESTART_DRAFT' }
@@ -125,7 +136,11 @@ export function draftReducer(state: DraftState, action: DraftAction): DraftState
         userTeamIndex: action.userTeamIndex,
         teams: createInitialTeams(action.userTeamIndex),
         status: 'in-progress',
+        awaitingStart: true,
       };
+    }
+    case 'BEGIN_DRAFT': {
+      return { ...state, awaitingStart: false };
     }
     case 'DRAFT_PLAYER': {
       const player = state.availablePlayers.find((p) => p.id === action.playerId);
@@ -141,6 +156,7 @@ export function draftReducer(state: DraftState, action: DraftAction): DraftState
         userTeamIndex: state.userTeamIndex,
         teams: createInitialTeams(state.userTeamIndex),
         status: 'in-progress',
+        awaitingStart: true,
       };
     }
     case 'RESET_TO_SETUP': {

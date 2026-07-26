@@ -35,6 +35,7 @@ export function DraftProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (state.status !== 'in-progress') return;
+    if (state.awaitingStart) return;
     if (state.cpuPaused) return;
     if (state.currentPick > TOTAL_PICKS) return;
 
