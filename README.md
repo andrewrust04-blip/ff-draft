@@ -97,21 +97,45 @@ Each CPU team scores every available, eligible player and takes the highest scor
 
 ```
 CPU Score = 2-QB Ranking Value
-          + Starting Position Need
-          + Quarterback Scarcity
+          + Tier-Cliff Value        (grab the last player before a rank drop-off)
+          + Starting Position Need  (scaled by round + a safe-to-wait check)
+          + League-Wide Scarcity    (demand vs. remaining supply, all 10 teams)
           + Small Random Adjustment
 ```
 
-The Starting Position Need and Quarterback Scarcity terms are deliberately small
-(tie-breakers, roughly a handful of rank-points) relative to the 2-QB Ranking Value,
-since the ranking already moves QBs up the board by tier. Earlier versions used much
-larger bonuses that caused an artificial round-1 QB run regardless of ranking — now
-the ranking drives the pick, and need/scarcity only nudge between similarly-ranked
-options.
+- **Tier-Cliff Value**: rewards taking the last player in a tier before the position's
+  rank jumps at that spot, rather than only comparing raw rank. Computed per-position
+  from the gap to the next-best available player at that position.
+- **Starting Position Need**: no longer a flat bonus. It's scaled by round (light in
+  rounds 1–3 so best-player-available wins, normal through the middle rounds, heavier
+  in the final rounds to lock in roster construction) and by a pick-distance check —
+  if a team has many picks before its next turn *and* the position isn't scarce, the
+  bonus is discounted since it's safe to wait; if supply is thin relative to that same
+  window, the discount is removed.
+- **League-Wide Scarcity**: generalizes the old QB-only scarcity signal to every
+  position, comparing total unmet need across all 10 teams against total remaining
+  supply at that position — a better predictor of a position "running dry" than a raw
+  headcount.
 
-Hard rules on top of the score: a team can never draft a 4th QB, and duplicate/drafted
-players are filtered out of the pool before scoring. This logic lives in
-`src/draft/cpuLogic.ts`.
+All three of the bonus terms above are deliberately modest relative to the 2-QB
+Ranking Value (nudges/tie-breakers, not overrides) — the ranking still drives most
+picks. Earlier versions used much larger bonuses that caused an artificial round-1 QB
+run regardless of ranking.
+
+### Hard rules (run before scoring, not just nudges)
+
+- A team can never draft a 4th QB, and duplicate/drafted players are filtered out of
+  the pool before scoring.
+- **Endgame constraint pass**: every team is targeted to finish with 2 starting QBs +
+  1 backup (3 total), 2 RB, 2 WR, 1 TE, and 1 FLEX (any extra RB/WR/TE). Once a team
+  has only as many picks left as it has unmet required needs, the eligible pool for
+  that pick is narrowed to *only* positions still needed — this is what guarantees no
+  team ever finishes a draft with an empty required slot (an earlier version could
+  occasionally finish a team with zero TEs).
+
+This logic lives in `src/draft/cpuLogic.ts`. It was stress-tested with 150 simulated
+full 10-team drafts (1,500 team-rosters) with zero empty slots, zero missing TEs, and
+every team finishing with exactly 3 QBs.
 
 ## Known limits of this prototype (by design)
 

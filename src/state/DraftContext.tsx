@@ -47,6 +47,9 @@ export function DraftProvider({ children }: { children: React.ReactNode }) {
       const player = pickForCpuTeam({
         availablePlayers: state.availablePlayers,
         roster: team.roster,
+        teams: state.teams,
+        teamIndex: onTheClock,
+        currentPick: state.currentPick,
       });
       if (player) {
         dispatch({ type: 'DRAFT_PLAYER', playerId: player.id });

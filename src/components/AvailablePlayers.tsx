@@ -52,8 +52,14 @@ export function AvailablePlayers() {
   // it doesn't change on every render.
   const suggestedPlayer = useMemo(() => {
     if (!isUsersTurn || !myRoster) return null;
-    return suggestBestPick({ availablePlayers: state.availablePlayers, roster: myRoster });
-  }, [isUsersTurn, myRoster, state.availablePlayers]);
+    return suggestBestPick({
+      availablePlayers: state.availablePlayers,
+      roster: myRoster,
+      teams: state.teams,
+      teamIndex: state.userTeamIndex,
+      currentPick: state.currentPick,
+    });
+  }, [isUsersTurn, myRoster, state.availablePlayers, state.teams, state.userTeamIndex, state.currentPick]);
 
   const hasActiveFilters = filter !== 'ALL' || query.trim().length > 0;
 
