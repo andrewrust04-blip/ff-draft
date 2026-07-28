@@ -100,6 +100,7 @@ CPU Score = 2-QB Ranking Value
           + Tier-Cliff Value        (grab the last player before a rank drop-off)
           + Starting Position Need  (scaled by round + a safe-to-wait check)
           + League-Wide Scarcity    (demand vs. remaining supply, all 10 teams)
+          - Roster Surplus Penalty  (escalating cost for over-stacking one position)
           + Small Random Adjustment
 ```
 
@@ -111,13 +112,28 @@ CPU Score = 2-QB Ranking Value
   in the final rounds to lock in roster construction) and by a pick-distance check —
   if a team has many picks before its next turn *and* the position isn't scarce, the
   bonus is discounted since it's safe to wait; if supply is thin relative to that same
-  window, the discount is removed.
+  window, the discount is removed. **QB has its own round curve**: getting to a 2nd QB
+  follows the normal curve, but once a team already has 2 QBs, the 3rd (a backup, not
+  a starter) stays low-priority until round 7+ — without this, the normal curve's jump
+  from round 3 to round 4 made teams rush a 3rd QB the moment round 4 started, which is
+  how a team could end up with 3 QBs in its first 4 picks.
 - **League-Wide Scarcity**: generalizes the old QB-only scarcity signal to every
   position, comparing total unmet need across all 10 teams against total remaining
   supply at that position — a better predictor of a position "running dry" than a raw
   headcount.
+- **Roster Surplus Penalty**: the other three terms above only ever pull a team
+  *toward* a position — nothing pushed back once a real need was satisfied, so raw
+  value could still pile up a 2nd/3rd/4th copy of the same position back to back (e.g.
+  a team ending the draft with 3 straight TEs). This adds the missing pushback: past a
+  generous per-position "comfort ceiling" (RB/WR: 3, TE: 1 — QB is excluded, see
+  below), every additional pick at that position costs a bit more than the last. It's
+  soft, not a hard block, so a genuinely huge value/cliff pick can still win.
 
-All three of the bonus terms above are deliberately modest relative to the 2-QB
+QB is intentionally excluded from the surplus penalty — it's already hard-capped at
+exactly 3 (its own target), so there's no "surplus QB" scenario to penalize; the QB
+round-curve change above is what fixes QB's version of this problem instead.
+
+All of the bonus/penalty terms above are deliberately modest relative to the 2-QB
 Ranking Value (nudges/tie-breakers, not overrides) — the ranking still drives most
 picks. Earlier versions used much larger bonuses that caused an artificial round-1 QB
 run regardless of ranking.
@@ -135,7 +151,21 @@ run regardless of ranking.
 
 This logic lives in `src/draft/cpuLogic.ts`. It was stress-tested with 150 simulated
 full 10-team drafts (1,500 team-rosters) with zero empty slots, zero missing TEs, and
-every team finishing with exactly 3 QBs.
+every team finishing with exactly 3 QBs. The roster-balance fix above was separately
+verified against 30 simulated drafts (300 team-rosters): teams finishing with 3+
+consecutive TE picks dropped to 1%, and teams with 3+ QBs in their first 4 picks
+dropped to 6.3% (both were a reliable, near-every-draft pattern before the fix).
+
+## Available Players: "your next pick" divider
+
+While it isn't the user's turn, the Available Players list (in its default state —
+`ALL` filter, no search) shows an inline divider matching ESPN's mock draft UI:
+`YOUR PICK (R#, P#)`, positioned N players down the ranked list, where N is however
+many picks will happen before the user is back on the clock. It's a rough guide (CPU
+teams won't necessarily take the top N players in exact order) for eyeballing who's
+likely to still be available next turn versus who probably won't be. Hidden during a
+position filter or an active search, since "N players from now" only means something
+against the full ranked list. Implemented in `AvailablePlayers.tsx`.
 
 ## Known limits of this prototype (by design)
 

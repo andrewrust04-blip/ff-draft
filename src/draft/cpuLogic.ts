@@ -10,6 +10,7 @@
 //             + Tier-Cliff Value        (grab the last player before a drop-off)
 //             + Starting Position Need  (scaled by round + safe-to-wait check)
 //             + League-Wide Scarcity    (demand vs. remaining supply)
+//             - Roster Surplus Penalty  (escalating cost for over-stacking one position)
 //             + Small Random Adjustment
 //
 // On top of the score, two hard (non-negotiable) rules run before scoring:
@@ -206,6 +207,29 @@ function needRoundMultiplier(round: number): number {
   return 1.75; // late rounds: prioritize locking in roster construction
 }
 
+/**
+ * QB gets its own curve instead of the generic one above. The generic curve
+ * jumps from 0.35 (rounds 1-3) straight to 1.0 the moment round 4 starts -
+ * fine for a team's 1st/2nd QB (a real starting need), but that same jump
+ * also applied to a team's 3rd QB (a backup, not a starter). A team that
+ * landed 2 QBs early - easy to do given how high this league's QB rankings
+ * go - would suddenly feel full urgency to grab QB #3 in round 4, which is
+ * how a team ends up with 3 QBs in its first 4 picks. Nobody drafts a
+ * backup QB in round 4. So: the 1st/2nd QB still follows the normal curve,
+ * but once a team already has 2 QBs, the 3rd stays low-priority until deep
+ * in the draft - the requirement never disappears (the endgame pass in
+ * bestEligiblePlayer still guarantees it gets filled), it just isn't
+ * treated as urgent this early.
+ */
+function qbNeedRoundMultiplier(round: number, qbsAlreadyOwned: number): number {
+  if (qbsAlreadyOwned >= 2) {
+    if (round <= 6) return 0.15;
+    if (round <= 9) return 0.6;
+    return 1.75;
+  }
+  return needRoundMultiplier(round);
+}
+
 function pickDistanceFactor(
   position: Position,
   picksUntilNextTurn: number,
@@ -246,9 +270,52 @@ function needBonus(
   }
   if (rawNeed === 0) return 0;
 
-  const roundFactor = needRoundMultiplier(round);
+  const roundFactor =
+    position === 'QB' ? qbNeedRoundMultiplier(round, countByPosition(roster).QB) : needRoundMultiplier(round);
   const distanceFactor = pickDistanceFactor(position, picksUntilNextTurn, supply);
   return rawNeed * roundFactor * distanceFactor;
+}
+
+// -----------------------------------------------------------------------
+// Roster balance (surplus penalty)
+// -----------------------------------------------------------------------
+// needBonus above only ever pulls a team TOWARD a position it still needs -
+// nothing ever pushed back the other way, so once a team's real starting
+// need was satisfied, raw value/cliff/scarcity could still happily pile up
+// a 2nd, 3rd, 4th copy of the same position back to back (e.g. a team
+// ending the draft with 3 straight TEs). This adds that missing pushback:
+// once a team already has "enough" of a position - defined generously, well
+// past its required starters - every additional pick at that position costs
+// a bit more than the last. It's a soft, escalating cost, not a hard block,
+// so a genuinely huge value/cliff pick can still overcome it; it just stops
+// the CPU from treating "enough" and "way more than enough" the same way.
+//
+// QB is intentionally excluded here - it's already hard-capped at exactly
+// its target (3, see MAX_QBS_PER_TEAM in rosterLogic.ts / TARGET_QBS above),
+// so there's no "surplus" QB scenario to penalize. QB's version of this
+// problem (rushing to a 3rd/backup QB too early) is handled by
+// qbNeedRoundMultiplier above instead.
+
+/** How many of a position a team can hold before extra copies start
+ * costing anything. Generous for RB/WR (normal fantasy rosters carry real
+ * bench depth there); tight for TE (backup TEs are rarely worth a roster
+ * spot, which is exactly the "3 straight TEs" pattern this exists to stop).
+ * QB isn't listed - see note above. */
+const SURPLUS_COMFORT_CEILING: Partial<Record<Position, number>> = {
+  RB: 3,
+  WR: 3,
+  TE: 1,
+};
+
+const SURPLUS_PENALTY_UNIT = 6;
+
+function surplusPenalty(position: Position, roster: Roster): number {
+  const ceiling = SURPLUS_COMFORT_CEILING[position];
+  if (ceiling === undefined) return 0;
+  const owned = countByPosition(roster)[position];
+  const copiesBeyondCeiling = owned - ceiling + 1; // the 1st pick past the ceiling counts as 1, etc.
+  if (copiesBeyondCeiling <= 0) return 0;
+  return copiesBeyondCeiling * SURPLUS_PENALTY_UNIT;
 }
 
 // -----------------------------------------------------------------------
@@ -270,8 +337,9 @@ function scorePlayer(
   const cliffValue = (cliffById.get(player.id) ?? 0) * 0.5;
   const need = needBonus(player.position, roster, round, picksUntilNextTurn, supply);
   const scarcity = scarcityBonus(player.position, demand, supply);
+  const surplus = surplusPenalty(player.position, roster);
   const randomAdjustment = randomize ? Math.random() * 8 : 0;
-  return rankingValue + cliffValue + need + scarcity + randomAdjustment;
+  return rankingValue + cliffValue + need + scarcity - surplus + randomAdjustment;
 }
 
 export interface CpuPickContext {

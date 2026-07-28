@@ -3,7 +3,7 @@ import { useDraft } from '../state/DraftContext';
 import { PositionBadge, POSITION_COLORS } from './PositionBadge';
 import type { Position } from '../types';
 import { TOTAL_PICKS } from '../types';
-import { teamIndexForPick } from '../draft/snakeOrder';
+import { roundForPick, teamIndexForPick } from '../draft/snakeOrder';
 import { isPositionEligible } from '../draft/rosterLogic';
 import { suggestBestPick } from '../draft/cpuLogic';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -62,6 +62,25 @@ export function AvailablePlayers() {
   }, [isUsersTurn, myRoster, state.availablePlayers, state.teams, state.userTeamIndex, state.currentPick]);
 
   const hasActiveFilters = filter !== 'ALL' || query.trim().length > 0;
+
+  // Where the user's next pick will land in this (unfiltered, no-search)
+  // ranked list, so they can see roughly who's likely to still be around
+  // when their turn comes back - same idea as ESPN's inline "YOUR PICK"
+  // divider. Only meaningful against the plain ranked list (ALL, no
+  // search), since a positional filter/search changes what "N players from
+  // now" actually means.
+  const nextUserPick = useMemo(() => {
+    if (state.status !== 'in-progress' || state.awaitingStart || isUsersTurn) return null;
+    for (let pick = state.currentPick; pick <= TOTAL_PICKS; pick++) {
+      if (teamIndexForPick(pick) === state.userTeamIndex) {
+        return { pick, round: roundForPick(pick), picksAway: pick - state.currentPick };
+      }
+    }
+    return null;
+  }, [state.status, state.awaitingStart, isUsersTurn, state.currentPick, state.userTeamIndex]);
+
+  const showNextPickDivider = nextUserPick !== null && filter === 'ALL' && query.trim().length === 0;
+  const dividerIndex = showNextPickDivider ? Math.min(nextUserPick!.picksAway, filtered.length) : null;
 
   return (
     <div
@@ -194,56 +213,62 @@ export function AvailablePlayers() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((p) => {
+            {filtered.map((p, i) => {
               const isSuggested = suggestedPlayer?.id === p.id;
               const qbCapBlocked = !!myRoster && !isPositionEligible(myRoster, p.position);
               const canDraft = isUsersTurn && !qbCapBlocked;
               return (
-                <tr
-                  key={p.id}
-                  style={{
-                    borderBottom: '1px solid var(--border)',
-                    background: isSuggested ? 'var(--accent-glow)' : undefined,
-                  }}
-                >
-                  <Td align="right" mono dim>
-                    {p.twoQbRank}
-                  </Td>
-                  <Td>
-                    <div style={{ color: 'var(--link)', fontWeight: 600, fontSize: isMobile ? 14 : 13.5 }}>
-                      {p.name}
-                    </div>
-                    <div style={{ fontSize: 11.5, marginTop: 1 }}>
-                      <span style={{ color: 'var(--text-faint)' }}>{p.team}</span>{' '}
-                      <span style={{ color: POSITION_COLORS[p.position], fontWeight: 700 }}>
-                        {p.position}
-                      </span>
-                    </div>
-                  </Td>
-                  <Td align="right">
-                    <button
-                      disabled={!canDraft}
-                      title={qbCapBlocked ? 'QB limit reached (3 max)' : undefined}
-                      onClick={() => dispatch({ type: 'DRAFT_PLAYER', playerId: p.id })}
-                      style={{
-                        padding: isMobile ? '8px 14px' : '5px 14px',
-                        minHeight: isMobile ? 34 : undefined,
-                        borderRadius: 999,
-                        border: canDraft ? 'none' : '1px solid var(--border-strong)',
-                        background: canDraft ? 'var(--accent)' : 'transparent',
-                        color: canDraft ? '#08110b' : 'var(--text-faint)',
-                        fontWeight: 700,
-                        fontSize: 12,
-                        cursor: canDraft ? 'pointer' : 'not-allowed',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      Draft
-                    </button>
-                  </Td>
-                </tr>
+                <>
+                  {dividerIndex === i && <NextPickDivider key="next-pick-divider" round={nextUserPick!.round} pick={nextUserPick!.pick} />}
+                  <tr
+                    key={p.id}
+                    style={{
+                      borderBottom: '1px solid var(--border)',
+                      background: isSuggested ? 'var(--accent-glow)' : undefined,
+                    }}
+                  >
+                    <Td align="right" mono dim>
+                      {p.twoQbRank}
+                    </Td>
+                    <Td>
+                      <div style={{ color: 'var(--link)', fontWeight: 600, fontSize: isMobile ? 14 : 13.5 }}>
+                        {p.name}
+                      </div>
+                      <div style={{ fontSize: 11.5, marginTop: 1 }}>
+                        <span style={{ color: 'var(--text-faint)' }}>{p.team}</span>{' '}
+                        <span style={{ color: POSITION_COLORS[p.position], fontWeight: 700 }}>
+                          {p.position}
+                        </span>
+                      </div>
+                    </Td>
+                    <Td align="right">
+                      <button
+                        disabled={!canDraft}
+                        title={qbCapBlocked ? 'QB limit reached (3 max)' : undefined}
+                        onClick={() => dispatch({ type: 'DRAFT_PLAYER', playerId: p.id })}
+                        style={{
+                          padding: isMobile ? '8px 14px' : '5px 14px',
+                          minHeight: isMobile ? 34 : undefined,
+                          borderRadius: 999,
+                          border: canDraft ? 'none' : '1px solid var(--border-strong)',
+                          background: canDraft ? 'var(--accent)' : 'transparent',
+                          color: canDraft ? '#08110b' : 'var(--text-faint)',
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: canDraft ? 'pointer' : 'not-allowed',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Draft
+                      </button>
+                    </Td>
+                  </tr>
+                </>
               );
             })}
+            {dividerIndex === filtered.length && (
+              <NextPickDivider key="next-pick-divider-end" round={nextUserPick!.round} pick={nextUserPick!.pick} />
+            )}
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={3} style={{ padding: 24, textAlign: 'center', color: 'var(--text-faint)' }}>
@@ -255,6 +280,43 @@ export function AvailablePlayers() {
         </table>
       </div>
     </div>
+  );
+}
+
+function NextPickDivider({ round, pick }: { round: number; pick: number }) {
+  return (
+    <tr>
+      <td colSpan={3} style={{ padding: '10px 4px' }}>
+        <div style={{ position: 'relative', textAlign: 'center' }}>
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: '50%',
+              borderTop: '1.5px dashed var(--accent)',
+            }}
+          />
+          <span
+            style={{
+              position: 'relative',
+              display: 'inline-block',
+              padding: '3px 12px',
+              borderRadius: 999,
+              border: '1px solid var(--accent)',
+              background: 'var(--bg-raised)',
+              color: 'var(--accent)',
+              fontSize: 10.5,
+              fontWeight: 700,
+              letterSpacing: '0.03em',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            YOUR PICK (R{round}, P{pick})
+          </span>
+        </div>
+      </td>
+    </tr>
   );
 }
 
