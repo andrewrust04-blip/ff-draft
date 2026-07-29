@@ -63,24 +63,49 @@ export function AvailablePlayers() {
 
   const hasActiveFilters = filter !== 'ALL' || query.trim().length > 0;
 
-  // Where the user's next pick will land in this (unfiltered, no-search)
-  // ranked list, so they can see roughly who's likely to still be around
-  // when their turn comes back - same idea as ESPN's inline "YOUR PICK"
-  // divider. Only meaningful against the plain ranked list (ALL, no
-  // search), since a positional filter/search changes what "N players from
-  // now" actually means.
-  const nextUserPick = useMemo(() => {
-    if (state.status !== 'in-progress' || state.awaitingStart || isUsersTurn) return null;
-    for (let pick = state.currentPick; pick <= TOTAL_PICKS; pick++) {
+  // Every one of the user's remaining picks for the rest of the draft, so we
+  // can drop a "YOUR PICK" divider at each one down this (unfiltered,
+  // no-search) ranked list - same idea as ESPN's inline divider, but for the
+  // user's whole future pick range, not just the next one, so they can
+  // scroll all the way down and see roughly who'll be around at every one of
+  // their upcoming turns. Only meaningful against the plain ranked list
+  // (ALL, no search), since a positional filter/search changes what "N
+  // players from now" actually means.
+  //
+  // Search starts:
+  //   - Before the draft starts (awaitingStart) or while a CPU is on the
+  //     clock: at the current pick itself (their next pick is the first one
+  //     found).
+  //   - During the user's own turn: just past the current pick, so the list
+  //     shows their FUTURE picks (this one is already being decided).
+  const userRemainingPicks = useMemo(() => {
+    if (state.status !== 'in-progress') return [];
+    const searchFrom = isUsersTurn ? state.currentPick + 1 : state.currentPick;
+    const picks: { pick: number; round: number; picksAway: number }[] = [];
+    for (let pick = searchFrom; pick <= TOTAL_PICKS; pick++) {
       if (teamIndexForPick(pick) === state.userTeamIndex) {
-        return { pick, round: roundForPick(pick), picksAway: pick - state.currentPick };
+        picks.push({ pick, round: roundForPick(pick), picksAway: pick - state.currentPick });
       }
     }
-    return null;
-  }, [state.status, state.awaitingStart, isUsersTurn, state.currentPick, state.userTeamIndex]);
+    return picks;
+  }, [state.status, isUsersTurn, state.currentPick, state.userTeamIndex]);
 
-  const showNextPickDivider = nextUserPick !== null && filter === 'ALL' && query.trim().length === 0;
-  const dividerIndex = showNextPickDivider ? Math.min(nextUserPick!.picksAway, filtered.length) : null;
+  const showDividers = userRemainingPicks.length > 0 && filter === 'ALL' && query.trim().length === 0;
+
+  // Map of list-index -> the user pick(s) that land there. Usually one pick
+  // per index, but late in the draft several remaining picks can all clamp
+  // to the end of a shrinking list, so each index holds an array.
+  const dividersByIndex = useMemo(() => {
+    const map = new Map<number, { pick: number; round: number }[]>();
+    if (!showDividers) return map;
+    for (const p of userRemainingPicks) {
+      const idx = Math.min(p.picksAway, filtered.length);
+      const existing = map.get(idx);
+      if (existing) existing.push(p);
+      else map.set(idx, [p]);
+    }
+    return map;
+  }, [showDividers, userRemainingPicks, filtered.length]);
 
   return (
     <div
@@ -219,7 +244,9 @@ export function AvailablePlayers() {
               const canDraft = isUsersTurn && !qbCapBlocked;
               return (
                 <>
-                  {dividerIndex === i && <NextPickDivider key="next-pick-divider" round={nextUserPick!.round} pick={nextUserPick!.pick} />}
+                  {(dividersByIndex.get(i) ?? []).map((up) => (
+                    <NextPickDivider key={`next-pick-divider-${up.pick}`} round={up.round} pick={up.pick} />
+                  ))}
                   <tr
                     key={p.id}
                     style={{
@@ -266,9 +293,9 @@ export function AvailablePlayers() {
                 </>
               );
             })}
-            {dividerIndex === filtered.length && (
-              <NextPickDivider key="next-pick-divider-end" round={nextUserPick!.round} pick={nextUserPick!.pick} />
-            )}
+            {(dividersByIndex.get(filtered.length) ?? []).map((up) => (
+              <NextPickDivider key={`next-pick-divider-end-${up.pick}`} round={up.round} pick={up.pick} />
+            ))}
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={3} style={{ padding: 24, textAlign: 'center', color: 'var(--text-faint)' }}>

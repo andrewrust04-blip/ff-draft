@@ -37,6 +37,18 @@ import { countByPosition, isPositionEligible } from './rosterLogic';
  */
 export const TARGET_QBS = 3;
 
+/**
+ * A team's 3rd QB is a backup, not a starter - nobody drafts a backup QB
+ * this early. qbNeedRoundMultiplier (below) tried to discourage this with a
+ * low-but-nonzero need bonus, but that alone wasn't enough: a 3rd QB with a
+ * strong raw 2-QB rank could still out-score a mediocre-ranked RB/WR/TE on
+ * ranking value alone, regardless of need. This is the hard backstop - a
+ * team may not take a 3rd QB before this round unless the endgame
+ * constraint pass (see endgameRequiredPositions) forces it because picks
+ * are running out and QB is still unmet.
+ */
+const QB3_MIN_ROUND = 7;
+
 /** Minimum count of each position a team needs so no starting slot (QB1/QB2,
  * RB1/RB2, WR1/WR2, TE) is ever left empty. RB/WR/TE additionally share one
  * more player between them to fill FLEX - see computeUnmetNeeds. */
@@ -307,15 +319,25 @@ const SURPLUS_COMFORT_CEILING: Partial<Record<Position, number>> = {
   TE: 1,
 };
 
-const SURPLUS_PENALTY_UNIT = 6;
+/** Cost per copy past the comfort ceiling, escalating with each extra copy
+ * (see copiesBeyondCeiling below). TE uses a much steeper unit than RB/WR -
+ * real drafters almost never take a 2nd TE without a clear value/cliff
+ * reason, and essentially never a 3rd. A unit shared with RB/WR wasn't steep
+ * enough to reliably stop that pattern. */
+const SURPLUS_PENALTY_UNIT: Partial<Record<Position, number>> = {
+  RB: 6,
+  WR: 6,
+  TE: 14,
+};
 
 function surplusPenalty(position: Position, roster: Roster): number {
   const ceiling = SURPLUS_COMFORT_CEILING[position];
-  if (ceiling === undefined) return 0;
+  const unit = SURPLUS_PENALTY_UNIT[position];
+  if (ceiling === undefined || unit === undefined) return 0;
   const owned = countByPosition(roster)[position];
   const copiesBeyondCeiling = owned - ceiling + 1; // the 1st pick past the ceiling counts as 1, etc.
   if (copiesBeyondCeiling <= 0) return 0;
-  return copiesBeyondCeiling * SURPLUS_PENALTY_UNIT;
+  return copiesBeyondCeiling * unit;
 }
 
 // -----------------------------------------------------------------------
@@ -374,6 +396,11 @@ function bestEligiblePlayer(context: CpuPickContext, randomize: boolean): Ranked
     // Fall back to the full eligible pool only in the (very unlikely) case
     // that no eligible player exists at any required position.
     if (narrowed.length > 0) pool = narrowed;
+  } else if (countByPosition(roster).QB >= 2 && round < QB3_MIN_ROUND) {
+    // Still has slack (not forced yet) - hard-block a 3rd QB this early. See
+    // QB3_MIN_ROUND above for why this needs to be a hard rule, not just a
+    // scoring nudge.
+    pool = pool.filter((p) => p.position !== 'QB');
   }
 
   let bestPlayer: RankedPlayer | null = null;

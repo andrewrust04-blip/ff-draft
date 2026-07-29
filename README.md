@@ -114,9 +114,7 @@ CPU Score = 2-QB Ranking Value
   bonus is discounted since it's safe to wait; if supply is thin relative to that same
   window, the discount is removed. **QB has its own round curve**: getting to a 2nd QB
   follows the normal curve, but once a team already has 2 QBs, the 3rd (a backup, not
-  a starter) stays low-priority until round 7+ — without this, the normal curve's jump
-  from round 3 to round 4 made teams rush a 3rd QB the moment round 4 started, which is
-  how a team could end up with 3 QBs in its first 4 picks.
+  a starter) stays low-priority until round 7+.
 - **League-Wide Scarcity**: generalizes the old QB-only scarcity signal to every
   position, comparing total unmet need across all 10 teams against total remaining
   supply at that position — a better predictor of a position "running dry" than a raw
@@ -130,8 +128,16 @@ CPU Score = 2-QB Ranking Value
   soft, not a hard block, so a genuinely huge value/cliff pick can still win.
 
 QB is intentionally excluded from the surplus penalty — it's already hard-capped at
-exactly 3 (its own target), so there's no "surplus QB" scenario to penalize; the QB
-round-curve change above is what fixes QB's version of this problem instead.
+exactly 3 (its own target), so there's no "surplus QB" scenario to penalize; the QB3
+hard round-gate below is what fixes QB's version of this problem instead.
+
+TE's surplus penalty unit (14 per copy past the ceiling) is more than double RB/WR's
+(6) — a 2nd TE should only happen when it's a clear value pick (a notably better rank
+than the best available RB/WR at that moment), not just because a team has bench space
+left. See "CPU tuning results" below for what this looks like in practice: almost all
+2nd-TE picks land in the final 1-2 rounds, when a startable-caliber TE is genuinely
+better value than replacement-level bench RB/WR — not stacking, just taking the value
+that's there.
 
 All of the bonus/penalty terms above are deliberately modest relative to the 2-QB
 Ranking Value (nudges/tie-breakers, not overrides) — the ranking still drives most
@@ -142,30 +148,79 @@ run regardless of ranking.
 
 - A team can never draft a 4th QB, and duplicate/drafted players are filtered out of
   the pool before scoring.
+- **QB3 round gate**: a team may not draft its 3rd QB (the backup) before round 7,
+  full stop — *unless* the endgame constraint pass below has already forced QB into
+  the required set because the team is genuinely running out of picks. This exists
+  because the QB round-curve above (a soft need multiplier) wasn't enough on its own:
+  a 3rd QB with a strong raw 2-QB rank could still out-score a mediocre RB/WR/TE on
+  ranking value alone, regardless of how low its need bonus was. Needed a hard rule,
+  not just a bigger nudge. See `QB3_MIN_ROUND` in `src/draft/cpuLogic.ts`.
 - **Endgame constraint pass**: every team is targeted to finish with 2 starting QBs +
   1 backup (3 total), 2 RB, 2 WR, 1 TE, and 1 FLEX (any extra RB/WR/TE). Once a team
   has only as many picks left as it has unmet required needs, the eligible pool for
   that pick is narrowed to *only* positions still needed — this is what guarantees no
   team ever finishes a draft with an empty required slot (an earlier version could
-  occasionally finish a team with zero TEs).
+  occasionally finish a team with zero TEs), and it's also the escape hatch for the
+  QB3 round gate above if a team somehow falls behind on QB.
 
 This logic lives in `src/draft/cpuLogic.ts`. It was stress-tested with 150 simulated
 full 10-team drafts (1,500 team-rosters) with zero empty slots, zero missing TEs, and
-every team finishing with exactly 3 QBs. The roster-balance fix above was separately
-verified against 30 simulated drafts (300 team-rosters): teams finishing with 3+
-consecutive TE picks dropped to 1%, and teams with 3+ QBs in their first 4 picks
-dropped to 6.3% (both were a reliable, near-every-draft pattern before the fix).
+every team finishing with exactly 3 QBs.
 
-## Available Players: "your next pick" divider
+### CPU tuning results
 
-While it isn't the user's turn, the Available Players list (in its default state —
-`ALL` filter, no search) shows an inline divider matching ESPN's mock draft UI:
-`YOUR PICK (R#, P#)`, positioned N players down the ranked list, where N is however
-many picks will happen before the user is back on the clock. It's a rough guide (CPU
-teams won't necessarily take the top N players in exact order) for eyeballing who's
-likely to still be available next turn versus who probably won't be. Hidden during a
-position filter or an active search, since "N players from now" only means something
-against the full ranked list. Implemented in `AvailablePlayers.tsx`.
+A repeatable simulation harness lives in `sim/simulate.ts` (run via esbuild + node,
+not part of the app bundle — `tsconfig.json` only includes `src`). It plays out full
+10-team drafts using the real `pickForCpuTeam` logic and tallies roster-construction
+stats. Most recent run, 1,000 simulated drafts (10,000 team-rosters):
+
+| Metric | Before fix | After fix |
+|---|---|---|
+| Teams with 3 QBs within their first 4 picks | 5.5% | **0.00%** |
+| Teams with 3 QBs within their first 6 picks | 10.7% | **0.00%** |
+| Teams with 3+ TE total | 3.3% | **1.6%** |
+| Teams with 3+ *consecutive* TE picks | 0.4% | **0.1%** |
+| Teams finishing with an empty required slot | 0% | 0% |
+| Teams NOT finishing with exactly 3 QB | 0% | 0% |
+
+("Before fix" numbers are from re-running the harness against the pre-fix scoring
+logic for direct comparison, not from a different session.)
+
+Teams with 2+ TE total stayed roughly flat (~77% either way) — expected and fine, not
+a regression. Inspecting individual picks shows why: almost every 2nd-TE pick happens
+in round 12-14, when the best remaining TE is genuinely 10-20 ranks better than the
+best remaining RB/WR (e.g. taking rank-115 Travis Kelce over a rank-128 replacement
+RB in the second-to-last round). That's a real value pick a good drafter would also
+make with their last couple of bench spots, not the "3 TEs early/mid-draft" stacking
+pattern this tuning targets.
+
+## Available Players: "your next pick" dividers
+
+The Available Players list (in its default state — `ALL` filter, no search) shows an
+inline divider matching ESPN's mock draft UI: `YOUR PICK (R#, P#)`, positioned N
+players down the ranked list, where N is however many picks will happen before that
+particular one of the user's turns arrives. A divider is shown for **every** remaining
+pick of the user's, not just the next one, so scrolling all the way down the list
+shows the rough range for each of their upcoming turns for the rest of the draft.
+It's a rough guide (CPU teams won't necessarily take the top N players in exact
+order) for eyeballing who's likely to still be available at each future turn. Hidden
+during a position filter or an active search, since "N players from now" only means
+something against the full ranked list. Implemented in `AvailablePlayers.tsx`.
+
+Shown in all three of these situations, not just while a CPU team is on the clock:
+
+- **Before the draft starts** (`awaitingStart`): the first divider points at the
+  user's very first pick, so they can scroll and preview the whole draft before
+  clicking "Start the draft."
+- **While a CPU team is picking**: the first divider points at the user's upcoming
+  turn (original behavior), with further dividers below it for every turn after that.
+- **During the user's own turn**: dividers start from their turn *after* this one
+  (this pick is already being decided), so they can scroll ahead and see the range for
+  every future pick while still deciding on the current one.
+
+Late in the draft, several of the user's remaining picks can land past the end of a
+shrinking available-players list; those stack together at the bottom rather than
+disappearing.
 
 ## Known limits of this prototype (by design)
 
