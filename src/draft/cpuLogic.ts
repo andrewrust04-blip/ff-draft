@@ -13,7 +13,7 @@
 //             - Roster Surplus Penalty  (escalating cost for over-stacking one position)
 //             + Small Random Adjustment
 //
-// On top of the score, two hard (non-negotiable) rules run before scoring:
+// On top of the score, three hard (non-negotiable) rules run before scoring:
 //   1. isPositionEligible - a team can never draft a 4th QB.
 //   2. endgameRequiredPositions - once a team is close enough to the end of
 //      its own picks that it can no longer afford a "luxury" best-player-
@@ -22,6 +22,10 @@
 //      guarantees every team finishes with 2 starting QBs + 1 backup, 2 RB,
 //      2 WR, 1 TE, and a FLEX - no team should ever finish a draft with a
 //      hole at a required position again.
+//   3. Opening-trio rule - CPU teams picking in the first 3 overall slots
+//      must take Josh Allen, Jahmyr Gibbs, or Bijan Robinson (weighted so
+//      Allen usually - not always - goes first). CPU-only: this never
+//      applies to the user's own pick, even if they hold pick 1, 2, or 3.
 // =============================================================================
 
 import type { Position, RankedPlayer, Roster, TeamState } from '../types';
@@ -48,6 +52,40 @@ export const TARGET_QBS = 3;
  * are running out and QB is still unmet.
  */
 const QB3_MIN_ROUND = 7;
+
+/**
+ * "Realistic first 3 picks" hard rule: whoever the CPU has on the clock for
+ * overall picks 1-3 must take one of these three, no exceptions - this is
+ * CPU-only. If the user holds one of the first 3 picks, they're free to
+ * take anyone; this rule is only ever consulted from pickForCpuTeam, which
+ * the app never calls for the user's own turn. If the draft's actual pick
+ * order puts the user's turn before some of these picks and they take a
+ * non-trio player, whichever trio member(s) remain still apply to the
+ * CPU picks still inside the top 3.
+ *
+ * Weights aren't equal - "usually Josh Allen first" means Allen should win
+ * most of the time this runs, not literally every time, so this is a
+ * weighted random pick over whichever of the three are still available
+ * (weights renormalize naturally against a shrunken candidate list).
+ */
+const OPENING_TRIO_MAX_PICK = 3;
+const OPENING_TRIO_WEIGHTS: Record<string, number> = {
+  'Josh Allen': 0.55,
+  'Jahmyr Gibbs': 0.27,
+  'Bijan Robinson': 0.18,
+};
+
+function pickOpeningTrioPlayer(availablePlayers: RankedPlayer[]): RankedPlayer | null {
+  const candidates = availablePlayers.filter((p) => p.name in OPENING_TRIO_WEIGHTS);
+  if (candidates.length === 0) return null; // all 3 already gone - fall through to normal scoring
+  const totalWeight = candidates.reduce((sum, p) => sum + OPENING_TRIO_WEIGHTS[p.name], 0);
+  let roll = Math.random() * totalWeight;
+  for (const candidate of candidates) {
+    roll -= OPENING_TRIO_WEIGHTS[candidate.name];
+    if (roll <= 0) return candidate;
+  }
+  return candidates[candidates.length - 1]; // floating-point safety net
+}
 
 /** Minimum count of each position a team needs so no starting slot (QB1/QB2,
  * RB1/RB2, WR1/WR2, TE) is ever left empty. RB/WR/TE additionally share one
@@ -431,6 +469,10 @@ function bestEligiblePlayer(context: CpuPickContext, randomize: boolean): Ranked
  * are truly no eligible players left (shouldn't happen in a normal draft).
  */
 export function pickForCpuTeam(context: CpuPickContext): RankedPlayer | null {
+  if (context.currentPick <= OPENING_TRIO_MAX_PICK) {
+    const trioPick = pickOpeningTrioPlayer(context.availablePlayers);
+    if (trioPick) return trioPick;
+  }
   return bestEligiblePlayer(context, true);
 }
 

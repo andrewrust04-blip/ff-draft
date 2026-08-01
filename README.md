@@ -121,6 +121,12 @@ QB slot assignments can be refreshed:
   alone; the 32 that matched were reassigned across the same 32 reserved
   slots they already occupied, just in ESPN's new order.
 
+  **Manual tweak right after that update**: Drake Maye and Jayden Daniels
+  were swapped — Maye now sits in the rank-3 slot, Daniels in the rank-10
+  slot (the reverse of what the ESPN-order reassignment above produced).
+  Just a direct two-player slot swap in `players.ts`, no change to the
+  reserved-slot algorithm itself.
+
 ## CPU drafting
 
 Each CPU team scores every available, eligible player and takes the highest score:
@@ -192,6 +198,13 @@ run regardless of ranking.
   team ever finishes a draft with an empty required slot (an earlier version could
   occasionally finish a team with zero TEs), and it's also the escape hatch for the
   QB3 round gate above if a team somehow falls behind on QB.
+- **Opening-trio rule**: whichever CPU team is on the clock for overall picks 1-3
+  must take Josh Allen, Jahmyr Gibbs, or Bijan Robinson — no exceptions, and it's a
+  weighted random pick among whichever of the three are still left (Allen 55%, Gibbs
+  27%, Bijan 18%), so Allen usually but not always goes first. **CPU-only**: this is
+  applied inside `pickForCpuTeam`, which the app never calls for the user's own turn
+  — if the user holds pick 1, 2, or 3, they can take anyone. See `OPENING_TRIO_WEIGHTS`
+  in `src/draft/cpuLogic.ts`.
 
 This logic lives in `src/draft/cpuLogic.ts`. It was stress-tested with 150 simulated
 full 10-team drafts (1,500 team-rosters) with zero empty slots, zero missing TEs, and
@@ -223,6 +236,11 @@ best remaining RB/WR (e.g. taking rank-115 Travis Kelce over a rank-128 replacem
 RB in the second-to-last round). That's a real value pick a good drafter would also
 make with their last couple of bench spots, not the "3 TEs early/mid-draft" stacking
 pattern this tuning targets.
+
+`sim/openingTrio.ts` verifies the opening-trio rule specifically — 2,000 simulated
+drafts confirmed the first 3 overall picks are Josh Allen/Jahmyr Gibbs/Bijan Robinson
+(in some order) **100.00%** of the time, with Josh Allen going 1st in 53.6% of drafts
+(Gibbs 27.9%, Bijan 18.6%) — "usually Allen, not always," as intended.
 
 ## Available Players: "your next pick" dividers
 
