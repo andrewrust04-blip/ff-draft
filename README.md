@@ -61,35 +61,65 @@ npm run build
 ## Player data
 
 `src/data/players.ts` contains 268 skill-position players (QB/RB/WR/TE), based
-on the attached ESPN 2026 PPR Top 300 Cheat Sheet. **K and D/ST entries from the
-source PDF were intentionally left out**, since this league format has no kicker
-or defense roster spots. RB/WR/TE `espnRank`/`espnPositionRank` are exactly as
-ESPN printed them — never modified.
+on the attached ESPN 2026 PPR Top 300 Cheat Sheet (most recently updated from
+the **7/31/2026** version of that sheet — see "Player data updates" below).
+**K and D/ST entries from the source PDF were intentionally left out**, since
+this league format has no kicker or defense roster spots. RB/WR/TE `espnRank`/
+`espnPositionRank` are exactly as ESPN printed them — never modified.
 
 **QBs are the one exception.** All 40 QBs' `espnRank` and `espnPositionRank`
-were overwritten to match a separate, more accurate/current QB rankings source
-(not ESPN's own QB order), since that's what league mates actually reference
-for mock drafts. 8 QBs absent from the original ESPN PDF extraction (Ty Simpson,
-Michael Penix, J.J. McCarthy, Shedeur Sanders, Mac Jones, Anthony Richardson,
-Justin Fields, Garrett Nussmeier) were added to support this. Deshaun Watson
-wasn't in the new source, so his original ESPN-derived rank was left as-is.
-The 2-QB tier-boost logic downstream is unaffected — it just now operates on
-this QB order instead of ESPN's.
+values are *reserved rank slots*, not ESPN's own numbers — see "2-QB Rank
+logic" below for what that means. As of the 7/31 update, the player occupying
+each of those 40 slots matches ESPN's current QB order; the 40 slot numbers
+themselves haven't changed since they were first set. 8 QBs aren't in ESPN's
+current top-300 at all (Ty Simpson, Michael Penix, J.J. McCarthy, Shedeur
+Sanders, Mac Jones, Anthony Richardson, Justin Fields, Garrett Nussmeier) —
+those were left exactly as they were, in their existing slots.
 
 ## 2-QB Rank logic (tunable)
 
-All quarterback-boost logic lives in one file, `src/data/twoQbAdjustment.ts`, with
-a `QB_TIERS` table you can edit directly:
+All quarterback logic lives in one file, `src/data/twoQbAdjustment.ts`. QBs'
+`espnRank` values in `players.ts` are **reserved slots**, not just sort keys —
+a QB's final `twoQbRank` always exactly equals its `espnRank`. RB/WR/TE
+players thread through whatever slots the QBs don't occupy, in their own
+relative ESPN order. See the comment block at the top of that file for the
+exact algorithm; the short version: QBs are queued by their reserved rank,
+skill players are queued by ESPN rank, and we walk final positions 1, 2,
+3, ... placing whichever queue's next player is due at that position.
 
-- QB position rank 1–3 (elite QB1s) → target overall rank 1–9 (Round 1)
-- QB position rank 4–8 (strong QB1s) → target overall rank 10–30 (Rounds 1–3)
-- QB position rank 9–15 (mid starters) → target overall rank 31–55 (Rounds 3–6)
-- QB position rank 16–24 (lower starters) → target overall rank 56–95 (Rounds 6–10)
-- QB position rank 25+ (backups/uncertain) → smaller boost: original ESPN rank × 0.75
+Earlier versions of this file used a tier-boost formula (QB position rank →
+target overall rank range) or a plain merge-sort — both let skill players
+occasionally push a QB's final position later than the number that was
+actually assigned to it. The reserved-slot approach fixed that.
 
-RB/WR/TE players are **not** re-ranked — they keep the exact same relative order
-ESPN gave them; only their position in the merged list shifts as QBs move up
-around them.
+To change how aggressively QBs get boosted relative to RB/WR/TE, edit the
+QB `espnRank` values directly in `players.ts` — smaller numbers = earlier
+reserved slots = more aggressive.
+
+## Player data updates
+
+When ESPN puts out a new cheat sheet, both the skill-position ranks and the
+QB slot assignments can be refreshed:
+
+- **RB/WR/TE**: the skill-position section of `players.ts` is fully
+  regenerated from the new sheet — existing players get updated `espnRank`/
+  `espnPositionRank`/`team`, players no longer in ESPN's top 300 are removed,
+  and any newly-appearing players are added with new IDs. **7/31/2026 update**
+  dropped Christian Kirk, Chris Brazzell II, Tyreek Hill, Trey Benson, Kaleb
+  Johnson, Kyle Juszczyk, Nick Westbrook-Ikhine, and Hunter Luepke (no longer
+  in ESPN's top 300), and added Treylon Burks, Tyquan Thornton, Tyler Badie,
+  Tahj Brooks, Kendre Miller, Jawhar Jordan, Marvin Mims Jr., and KaVontae
+  Turpin.
+- **QB**: if you want the *player* occupying each reserved slot to follow a
+  new QB order (e.g. an updated ESPN QB ranking) while keeping the reserved
+  slots themselves — and therefore the CPU draft timing/pacing — exactly as
+  they are: take the reserved slots currently used by QBs *that appear in the
+  new ranking*, sort those slot numbers ascending, and assign the new
+  ranking's QB1, QB2, QB3... to them in order. Any QB not present in the new
+  ranking keeps its existing slot untouched. **7/31/2026 update**: ESPN's
+  sheet only explicitly ranks 32 QBs, so the other 8 (listed above) were left
+  alone; the 32 that matched were reassigned across the same 32 reserved
+  slots they already occupied, just in ESPN's new order.
 
 ## CPU drafting
 
