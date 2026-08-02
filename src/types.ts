@@ -12,6 +12,9 @@ export interface Player {
   espnPositionRank: number;
   name: string;
   team: string;
+  /** NFL bye week (1-18). 0 means unknown/free agent - not a real bye week,
+   * always exclude 0 from bye-stack warnings and displays. */
+  bye: number;
 }
 
 /** A player plus the custom 2-QB league rank, used everywhere in the draft UI. */

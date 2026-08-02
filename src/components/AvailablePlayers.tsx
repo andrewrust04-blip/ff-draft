@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react';
+import { Star } from 'lucide-react';
 import { useDraft } from '../state/DraftContext';
+import { useFavorites } from '../state/FavoritesContext';
 import { PositionBadge, POSITION_COLORS } from './PositionBadge';
 import type { Position } from '../types';
 import { TOTAL_PICKS } from '../types';
 import { roundForPick, teamIndexForPick } from '../draft/snakeOrder';
 import { isPositionEligible } from '../draft/rosterLogic';
+import { currentCountForCandidateBye, BYE_STACK_THRESHOLD } from '../draft/byeWeekLogic';
 import { suggestBestPick } from '../draft/cpuLogic';
 import { useIsMobile } from '../hooks/useIsMobile';
 
-type FilterOption = 'ALL' | Position | 'FLEX';
+type FilterOption = 'ALL' | Position | 'FLEX' | 'FAV';
 const FILTERS: { value: FilterOption; label: string }[] = [
   { value: 'ALL', label: 'All' },
   { value: 'QB', label: 'QB' },
@@ -16,11 +19,13 @@ const FILTERS: { value: FilterOption; label: string }[] = [
   { value: 'WR', label: 'WR' },
   { value: 'TE', label: 'TE' },
   { value: 'FLEX', label: 'FLEX' },
+  { value: 'FAV', label: '★ Favorites' },
 ];
 const FLEX_ELIGIBLE: Position[] = ['RB', 'WR', 'TE'];
 
 export function AvailablePlayers() {
   const { state, dispatch } = useDraft();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterOption>('ALL');
   const isMobile = useIsMobile();
@@ -36,7 +41,9 @@ export function AvailablePlayers() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return state.availablePlayers.filter((p) => {
-      if (filter === 'FLEX') {
+      if (filter === 'FAV') {
+        if (!isFavorite(p.id)) return false;
+      } else if (filter === 'FLEX') {
         if (!FLEX_ELIGIBLE.includes(p.position)) return false;
       } else if (filter !== 'ALL' && p.position !== filter) {
         return false;
@@ -44,7 +51,7 @@ export function AvailablePlayers() {
       if (q && !p.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [state.availablePlayers, query, filter]);
+  }, [state.availablePlayers, query, filter, isFavorite]);
 
   // Suggested pick: same scoring model the CPU uses, applied to the user's
   // own roster, so it reflects real positional need (won't suggest a 4th QB,
@@ -242,6 +249,9 @@ export function AvailablePlayers() {
               const isSuggested = suggestedPlayer?.id === p.id;
               const qbCapBlocked = !!myRoster && !isPositionEligible(myRoster, p.position);
               const canDraft = isUsersTurn && !qbCapBlocked;
+              const favorited = isFavorite(p.id);
+              const byeStackCount = myRoster ? currentCountForCandidateBye(myRoster, p) : 0;
+              const wouldStackBye = byeStackCount + 1 >= BYE_STACK_THRESHOLD;
               return (
                 <>
                   {(dividersByIndex.get(i) ?? []).map((up) => (
@@ -258,14 +268,49 @@ export function AvailablePlayers() {
                       {p.twoQbRank}
                     </Td>
                     <Td>
-                      <div style={{ color: 'var(--link)', fontWeight: 600, fontSize: isMobile ? 14 : 13.5 }}>
-                        {p.name}
-                      </div>
-                      <div style={{ fontSize: 11.5, marginTop: 1 }}>
-                        <span style={{ color: 'var(--text-faint)' }}>{p.team}</span>{' '}
-                        <span style={{ color: POSITION_COLORS[p.position], fontWeight: 700 }}>
-                          {p.position}
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                        <button
+                          onClick={() => toggleFavorite(p.id)}
+                          aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            padding: 2,
+                            marginTop: 1,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexShrink: 0,
+                            color: favorited ? 'var(--star)' : 'var(--text-faint)',
+                          }}
+                        >
+                          <Star size={15} fill={favorited ? 'var(--star)' : 'none'} strokeWidth={2} />
+                        </button>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ color: 'var(--link)', fontWeight: 600, fontSize: isMobile ? 14 : 13.5 }}>
+                            {p.name}
+                          </div>
+                          <div style={{ fontSize: 11.5, marginTop: 1 }}>
+                            <span style={{ color: 'var(--text-faint)' }}>{p.team}</span>{' '}
+                            <span style={{ color: POSITION_COLORS[p.position], fontWeight: 700 }}>
+                              {p.position}
+                            </span>
+                            {p.bye > 0 && (
+                              <span style={{ color: 'var(--text-faint)' }}> &middot; Bye {p.bye}</span>
+                            )}
+                          </div>
+                          {wouldStackBye && (
+                            <div
+                              style={{
+                                fontSize: 10.5,
+                                color: 'var(--warning)',
+                                fontWeight: 600,
+                                marginTop: 2,
+                              }}
+                            >
+                              Would make {byeStackCount + 1} on bye wk {p.bye}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </Td>
                     <Td align="right">
@@ -299,7 +344,9 @@ export function AvailablePlayers() {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={3} style={{ padding: 24, textAlign: 'center', color: 'var(--text-faint)' }}>
-                  No players match this search.
+                  {filter === 'FAV'
+                    ? "You haven't starred any favorites yet — tap the ☆ next to a player to add them."
+                    : 'No players match this search.'}
                 </td>
               </tr>
             )}

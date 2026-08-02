@@ -48,15 +48,100 @@ npm run build
 
 | What | File |
 |---|---|
-| Player data extracted from the ESPN PDF | `src/data/players.ts` |
-| 2-QB ranking adjustment (the tunable QB-boost logic) | `src/data/twoQbAdjustment.ts` |
+| Player data extracted from the ESPN PDF (includes bye weeks) | `src/data/players.ts` |
+| 2-QB ranking adjustment (the tunable QB-boost logic) + custom order merge | `src/data/twoQbAdjustment.ts` |
 | Snake draft order math | `src/draft/snakeOrder.ts` |
 | CPU pick scoring/selection | `src/draft/cpuLogic.ts` |
 | Roster slot auto-assignment | `src/draft/rosterLogic.ts` |
+| Bye-stack detection | `src/draft/byeWeekLogic.ts` |
 | Draft state (reducer + actions) | `src/state/draftReducer.ts` |
 | React context wiring + CPU auto-pick timer | `src/state/DraftContext.tsx` |
+| Favorites (starred players), shared across the app | `src/state/FavoritesContext.tsx` |
+| localStorage: favorites, ranking overrides, custom order, cheat-sheet parsing | `src/state/preferencesStorage.ts` |
+| Rankings & Favorites screen open/close state | `src/state/RankingsUIContext.tsx` |
+| Rankings & Favorites editor UI (nudge/reorder, paste sheet, favorites) | `src/components/RankingsScreen.tsx` |
+| "Check my odds from this slot" UI | `src/components/SlotOddsAnalyzer.tsx` |
+| Off-main-thread simulation for the odds check | `src/workers/oddsWorker.ts` |
 | Shared types | `src/types.ts` |
 | UI components | `src/components/*.tsx` |
+
+## Personalization features (favorites, ranking edits, bye warnings)
+
+Three related features, all built this session, all persisted via `localStorage`
+(this is a real deployed Vercel app, not a claude.ai artifact, so browser storage
+is fine here) and all best-effort - a corrupted/missing value degrades to "no
+preference saved" rather than crashing, see `preferencesStorage.ts`.
+
+### Favorites
+
+Star any player from Available Players, the Rankings screen, or the Favorites tab.
+`FavoritesContext.tsx` holds the live state so every place that shows a star stays
+in sync; `preferencesStorage.ts` persists it. A "★ Favorites" filter chip in
+Available Players shows just your starred players. Favorites are purely a personal
+UI aid - **CPU teams never see or react to your favorites list**, same as a real
+opponent wouldn't know your rankings.
+
+### Rankings & Favorites editor (`RankingsScreen.tsx`)
+
+Reachable from the "Rankings & Favorites" button on the Setup screen, or the
+Favorites-only shortcut in the in-draft settings menu. Two tabs:
+
+- **Rankings**: search/filter all 268 players, nudge any player up/down or type
+  a target rank directly to jump it there. "Save order" persists your edits as a
+  full custom order (`customOrder` in `preferencesStorage.ts`) that's layered on
+  top of the normally-computed rankings via `applyCustomOrder()` in
+  `twoQbAdjustment.ts` — see that function's comment for how it threads
+  untouched players back in around your edits. **Only editable before a draft
+  starts** (`state.status === 'setup'`) — editing mid-draft would mean
+  reconciling already-picked/available player state against a changed ranking,
+  which isn't worth the complexity for what's meant to be pre-draft prep.
+  Saving calls `refreshRankings()` (see `DraftContext.tsx`), which rebuilds the
+  player pool and resets to a fresh setup state.
+- **Rankings → Paste an updated cheat sheet**: paste raw ESPN cheat sheet text
+  (the same "N. (POS#) Name, TEAM $X Y" row format the original PDF import
+  used) and it's parsed client-side with the same regex approach used to import
+  the PDF originally. Matches existing RB/WR/TE players by name, previews
+  exactly what will be updated/added/removed, and only writes anything on
+  explicit "Apply." **QB rows are always ignored** — QBs use the separate
+  reserved-slot system (see "2-QB Rank logic" above), not this pipeline. This
+  is meant to remove the "upload a zip, get code back" loop for a pure ranking
+  refresh — though a genuinely new cheat sheet PDF is still best handled by
+  attaching it in a new conversation, since a paste can't include the
+  bye-week-table cross-check or catch subtler formatting issues the way a full
+  PDF re-extraction can.
+- **Favorites tab**: same star-toggle list, plus your current favorites shown
+  as removable chips up top.
+
+### Bye-week warnings (`byeWeekLogic.ts`)
+
+Every player's bye week (1-18, or `0` for unknown/free agent) was extracted
+directly from each player's own PDF row rather than the separate bye-week side
+table, since the side table's layout doesn't extract cleanly through
+`pdfplumber` — cross-checked for consistency across all 32 teams before being
+written into `players.ts`. `BYE_STACK_THRESHOLD = 3`: My Roster shows a warning
+banner for any bye week with 3+ rostered players, and Available Players flags
+a candidate player with "Would make N on bye wk W" if drafting them would hit
+that threshold. This is purely informational for the user - **it does not
+affect CPU drafting logic at all**.
+
+## "Check my odds from this slot" (`SlotOddsAnalyzer.tsx` + `oddsWorker.ts`)
+
+On the Setup screen, runs the same kind of simulation from `sim/favoritesSlot.ts`
+(see "CPU tuning results" below for the manual version of this we ran earlier)
+but live, in the browser, against your actual current favorites list and the
+slot you have selected. Strategy for "your team": take your best-ranked
+available favorite at each turn (falling back to normal best-value CPU logic
+if none qualify); every other team drafts normally, with no knowledge of your
+list - same as `favoritesSlot.ts`.
+
+Runs in a Web Worker (`src/workers/oddsWorker.ts`) so the UI thread never
+blocks - `cpuLogic.ts`/`twoQbAdjustment.ts`/`rosterLogic.ts`/`snakeOrder.ts`
+have no DOM dependencies (verified before building this), so they import into
+the worker unmodified, meaning results come from the *exact* same draft logic
+the live app uses, not a simplified stand-in. Defaults to 150 trials, which
+measured at ~25ms/draft (~3.8s total) in local testing - a progress bar keeps
+it from feeling frozen. Results: overall average favorites landed, plus a
+per-favorite capture-rate bar for every starred player.
 
 ## Player data
 

@@ -24,6 +24,10 @@
   --danger: #e2586a;
   --danger-dim: #c2455a;
 
+  --warning: #e8a33d;
+  --warning-glow: rgba(232, 163, 61, 0.14);
+  --star: #f2c94c;
+
   --font-display: 'Rockwell', 'Roboto Slab', Georgia, 'Segoe UI', ui-sans-serif, sans-serif;
   --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
   --font-mono: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', ui-monospace, monospace;
@@ -113,4 +117,12 @@ input:focus-visible,
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.spin {
+  animation: spin 0.9s linear infinite;
 }

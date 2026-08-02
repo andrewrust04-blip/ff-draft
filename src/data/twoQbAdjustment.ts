@@ -71,3 +71,45 @@ export function computeTwoQbRankings(allPlayers: Player[]): RankedPlayer[] {
     twoQbRank: index + 1,
   }));
 }
+
+/**
+ * Layers a user's manual rank order (from the in-app Rankings editor - see
+ * preferencesStorage.ts) on top of the computed 2-QB rankings. `customOrder`
+ * is an ordered list of player IDs; whichever players it covers are placed
+ * in exactly that sequence. Any player NOT in `customOrder` (e.g. a newly
+ * added player from a later cheat-sheet paste, or the user simply hasn't
+ * touched them) is threaded back in by comparing its ORIGINAL computed
+ * twoQbRank against the original computed rank of each custom-ordered
+ * neighbor, so it still lands in a sensible spot rather than being dumped
+ * at the end. Final twoQbRank values are renumbered 1..N to stay contiguous.
+ */
+export function applyCustomOrder(
+  computed: RankedPlayer[],
+  customOrder: string[] | null
+): RankedPlayer[] {
+  if (!customOrder || customOrder.length === 0) return computed;
+
+  const byId = new Map(computed.map((p) => [p.id, p]));
+  const customIdSet = new Set(customOrder);
+
+  const customPlayers = customOrder
+    .map((id) => byId.get(id))
+    .filter((p): p is RankedPlayer => p !== undefined);
+  const leftover = computed.filter((p) => !customIdSet.has(p.id));
+
+  const merged: RankedPlayer[] = [];
+  let li = 0;
+  for (const cp of customPlayers) {
+    while (li < leftover.length && leftover[li].twoQbRank < cp.twoQbRank) {
+      merged.push(leftover[li]);
+      li++;
+    }
+    merged.push(cp);
+  }
+  while (li < leftover.length) {
+    merged.push(leftover[li]);
+    li++;
+  }
+
+  return merged.map((p, index) => ({ ...p, twoQbRank: index + 1 }));
+}

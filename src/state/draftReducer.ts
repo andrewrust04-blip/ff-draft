@@ -60,7 +60,8 @@ export type DraftAction =
   | { type: 'RESTART_DRAFT' }
   | { type: 'RESET_TO_SETUP' }
   | { type: 'PAUSE_CPU' }
-  | { type: 'RESUME_CPU' };
+  | { type: 'RESUME_CPU' }
+  | { type: 'REPLACE_PLAYER_POOL'; allPlayers: RankedPlayer[] };
 
 function applyPick(state: DraftState, player: RankedPlayer): DraftState {
   if (state.currentPick > TOTAL_PICKS) return state;
@@ -167,6 +168,13 @@ export function draftReducer(state: DraftState, action: DraftAction): DraftState
     }
     case 'RESUME_CPU': {
       return { ...state, cpuPaused: false };
+    }
+    case 'REPLACE_PLAYER_POOL': {
+      // Only meaningful before a draft starts - see refreshRankings in
+      // DraftContext.tsx. Defensively a no-op otherwise, so a stray fire
+      // can never wipe out an in-progress draft's picks.
+      if (state.status !== 'setup') return state;
+      return createInitialState(action.allPlayers);
     }
     default:
       return state;

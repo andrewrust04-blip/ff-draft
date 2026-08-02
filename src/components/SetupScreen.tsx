@@ -1,10 +1,14 @@
 import { useState } from 'react';
+import { SlidersHorizontal } from 'lucide-react';
 import { useDraft } from '../state/DraftContext';
+import { useRankingsUI } from '../state/RankingsUIContext';
 import { TOTAL_ROUNDS, TOTAL_TEAMS } from '../types';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { SlotOddsAnalyzer } from './SlotOddsAnalyzer';
 
 export function SetupScreen() {
   const { dispatch } = useDraft();
+  const { openRankings } = useRankingsUI();
   const [selectedSlot, setSelectedSlot] = useState(1);
   const isMobile = useIsMobile();
 
@@ -53,10 +57,33 @@ export function SetupScreen() {
         >
           Set the board
         </h1>
-        <p style={{ margin: '0 0 32px', color: 'var(--text-dim)', lineHeight: 1.5, fontSize: 15 }}>
+        <p style={{ margin: '0 0 20px', color: 'var(--text-dim)', lineHeight: 1.5, fontSize: 15 }}>
           {TOTAL_TEAMS}-team, full PPR, 2-QB snake draft &middot; {TOTAL_ROUNDS} rounds &middot; nine
           CPU teams draft against you, on the clock automatically.
         </p>
+
+        <button
+          onClick={() => openRankings('rankings')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            width: '100%',
+            padding: '11px 0',
+            marginBottom: 28,
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border)',
+            background: 'var(--bg-card)',
+            color: 'var(--text)',
+            fontWeight: 600,
+            fontSize: 13.5,
+            cursor: 'pointer',
+          }}
+        >
+          <SlidersHorizontal size={15} />
+          Rankings &amp; Favorites
+        </button>
 
         <div style={{ marginBottom: 28 }}>
           <div
@@ -104,6 +131,10 @@ export function SetupScreen() {
               );
             })}
           </div>
+        </div>
+
+        <div style={{ marginBottom: 24 }}>
+          <SlotOddsAnalyzer slot={selectedSlot} />
         </div>
 
         <button

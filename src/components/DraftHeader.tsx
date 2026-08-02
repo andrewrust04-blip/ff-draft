@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { Settings, Pause, Play, Undo2, RotateCcw } from 'lucide-react';
+import { Settings, Pause, Play, Undo2, RotateCcw, Star } from 'lucide-react';
 import { useDraft } from '../state/DraftContext';
+import { useRankingsUI } from '../state/RankingsUIContext';
 import { TOTAL_PICKS } from '../types';
 import { roundForPick, teamIndexForPick } from '../draft/snakeOrder';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 export function DraftHeader() {
   const { state, dispatch } = useDraft();
+  const { openRankings } = useRankingsUI();
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -118,6 +120,14 @@ export function DraftHeader() {
               zIndex: 20,
             }}
           >
+            <MenuItem
+              icon={<Star size={16} />}
+              label="Favorites"
+              onClick={() => {
+                openRankings('favorites');
+                setMenuOpen(false);
+              }}
+            />
             {state.cpuPaused ? (
               <MenuItem
                 icon={<Play size={16} />}
