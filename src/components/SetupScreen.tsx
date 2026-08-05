@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal, BarChart3 } from 'lucide-react';
 import { useDraft } from '../state/DraftContext';
 import { useRankingsUI } from '../state/RankingsUIContext';
+import { useDraftHistoryUI } from '../state/DraftHistoryUIContext';
 import { TOTAL_ROUNDS, TOTAL_TEAMS } from '../types';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { SlotOddsAnalyzer } from './SlotOddsAnalyzer';
@@ -9,6 +10,7 @@ import { SlotOddsAnalyzer } from './SlotOddsAnalyzer';
 export function SetupScreen() {
   const { dispatch } = useDraft();
   const { openRankings } = useRankingsUI();
+  const { open: openHistory } = useDraftHistoryUI();
   const [selectedSlot, setSelectedSlot] = useState(1);
   const isMobile = useIsMobile();
 
@@ -62,28 +64,50 @@ export function SetupScreen() {
           CPU teams draft against you, on the clock automatically.
         </p>
 
-        <button
-          onClick={() => openRankings('rankings')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            width: '100%',
-            padding: '11px 0',
-            marginBottom: 28,
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border)',
-            background: 'var(--bg-card)',
-            color: 'var(--text)',
-            fontWeight: 600,
-            fontSize: 13.5,
-            cursor: 'pointer',
-          }}
-        >
-          <SlidersHorizontal size={15} />
-          Rankings &amp; Favorites
-        </button>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 28 }}>
+          <button
+            onClick={() => openRankings('rankings')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              flex: 1,
+              padding: '11px 0',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border)',
+              background: 'var(--bg-card)',
+              color: 'var(--text)',
+              fontWeight: 600,
+              fontSize: 13.5,
+              cursor: 'pointer',
+            }}
+          >
+            <SlidersHorizontal size={15} />
+            {isMobile ? 'Rankings' : 'Rankings & Favorites'}
+          </button>
+          <button
+            onClick={openHistory}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              flex: 1,
+              padding: '11px 0',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border)',
+              background: 'var(--bg-card)',
+              color: 'var(--text)',
+              fontWeight: 600,
+              fontSize: 13.5,
+              cursor: 'pointer',
+            }}
+          >
+            <BarChart3 size={15} />
+            {isMobile ? 'Stats' : 'Draft History & Stats'}
+          </button>
+        </div>
 
         <div style={{ marginBottom: 28 }}>
           <div

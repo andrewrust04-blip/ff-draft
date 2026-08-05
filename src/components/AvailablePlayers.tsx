@@ -7,7 +7,6 @@ import type { Position } from '../types';
 import { TOTAL_PICKS } from '../types';
 import { roundForPick, teamIndexForPick } from '../draft/snakeOrder';
 import { isPositionEligible } from '../draft/rosterLogic';
-import { currentCountForCandidateBye, BYE_STACK_THRESHOLD } from '../draft/byeWeekLogic';
 import { suggestBestPick } from '../draft/cpuLogic';
 import { useIsMobile } from '../hooks/useIsMobile';
 
@@ -250,8 +249,6 @@ export function AvailablePlayers() {
               const qbCapBlocked = !!myRoster && !isPositionEligible(myRoster, p.position);
               const canDraft = isUsersTurn && !qbCapBlocked;
               const favorited = isFavorite(p.id);
-              const byeStackCount = myRoster ? currentCountForCandidateBye(myRoster, p) : 0;
-              const wouldStackBye = byeStackCount + 1 >= BYE_STACK_THRESHOLD;
               return (
                 <>
                   {(dividersByIndex.get(i) ?? []).map((up) => (
@@ -298,18 +295,6 @@ export function AvailablePlayers() {
                               <span style={{ color: 'var(--text-faint)' }}> &middot; Bye {p.bye}</span>
                             )}
                           </div>
-                          {wouldStackBye && (
-                            <div
-                              style={{
-                                fontSize: 10.5,
-                                color: 'var(--warning)',
-                                fontWeight: 600,
-                                marginTop: 2,
-                              }}
-                            >
-                              Would make {byeStackCount + 1} on bye wk {p.bye}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </Td>

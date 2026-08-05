@@ -1,9 +1,12 @@
 import { useDraft } from '../state/DraftContext';
+import { useDraftHistoryUI } from '../state/DraftHistoryUIContext';
 import { PositionBadge } from './PositionBadge';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { BarChart3 } from 'lucide-react';
 
 export function CompletionScreen() {
   const { state, dispatch } = useDraft();
+  const { open: openHistory } = useDraftHistoryUI();
   const isMobile = useIsMobile();
   const myTeam = state.teams[state.userTeamIndex];
   const myPicks = state.picks
@@ -46,24 +49,49 @@ export function CompletionScreen() {
             Your final roster &mdash; {myTeam.name}
           </h2>
         </div>
-        <button
-          onClick={() => dispatch({ type: 'RESET_TO_SETUP' })}
-          style={{
-            padding: isMobile ? '13px 20px' : '11px 20px',
-            minHeight: isMobile ? 46 : undefined,
-            width: isMobile ? '100%' : undefined,
-            borderRadius: 'var(--radius-md)',
-            border: 'none',
-            background: 'var(--accent)',
-            color: '#0f1216',
-            fontWeight: 700,
-            fontSize: 14,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Start new mock draft
-        </button>
+        <div style={{ display: 'flex', gap: 8, width: isMobile ? '100%' : undefined }}>
+          <button
+            onClick={openHistory}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 7,
+              padding: isMobile ? '13px 16px' : '11px 18px',
+              minHeight: isMobile ? 46 : undefined,
+              flex: isMobile ? 1 : undefined,
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border)',
+              background: 'var(--bg-card)',
+              color: 'var(--text)',
+              fontWeight: 600,
+              fontSize: 13.5,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <BarChart3 size={15} />
+            {isMobile ? 'Stats' : 'View stats'}
+          </button>
+          <button
+            onClick={() => dispatch({ type: 'RESET_TO_SETUP' })}
+            style={{
+              padding: isMobile ? '13px 20px' : '11px 20px',
+              minHeight: isMobile ? 46 : undefined,
+              flex: isMobile ? 1 : undefined,
+              borderRadius: 'var(--radius-md)',
+              border: 'none',
+              background: 'var(--accent)',
+              color: '#0f1216',
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Start new mock draft
+          </button>
+        </div>
       </div>
 
       <div style={{ overflowX: 'auto' }}>

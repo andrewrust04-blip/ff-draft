@@ -53,7 +53,6 @@ npm run build
 | Snake draft order math | `src/draft/snakeOrder.ts` |
 | CPU pick scoring/selection | `src/draft/cpuLogic.ts` |
 | Roster slot auto-assignment | `src/draft/rosterLogic.ts` |
-| Bye-stack detection | `src/draft/byeWeekLogic.ts` |
 | Draft state (reducer + actions) | `src/state/draftReducer.ts` |
 | React context wiring + CPU auto-pick timer | `src/state/DraftContext.tsx` |
 | Favorites (starred players), shared across the app | `src/state/FavoritesContext.tsx` |
@@ -62,10 +61,15 @@ npm run build
 | Rankings & Favorites editor UI (nudge/reorder, paste sheet, favorites) | `src/components/RankingsScreen.tsx` |
 | "Check my odds from this slot" UI | `src/components/SlotOddsAnalyzer.tsx` |
 | Off-main-thread simulation for the odds check | `src/workers/oddsWorker.ts` |
+| localStorage: completed-draft history log | `src/state/draftHistoryStorage.ts` |
+| Draft history aggregation (per-slot, per-player capture rates) | `src/state/draftHistoryStats.ts` |
+| Watches for a draft completing and logs it | `src/state/DraftHistoryLogger.tsx` |
+| Draft History & Stats screen open/close state | `src/state/DraftHistoryUIContext.tsx` |
+| Draft History & Stats UI | `src/components/DraftHistoryScreen.tsx` |
 | Shared types | `src/types.ts` |
 | UI components | `src/components/*.tsx` |
 
-## Personalization features (favorites, ranking edits, bye warnings)
+## Personalization features (favorites, ranking edits)
 
 Three related features, all built this session, all persisted via `localStorage`
 (this is a real deployed Vercel app, not a claude.ai artifact, so browser storage
@@ -112,17 +116,55 @@ Favorites-only shortcut in the in-draft settings menu. Two tabs:
 - **Favorites tab**: same star-toggle list, plus your current favorites shown
   as removable chips up top.
 
-### Bye-week warnings (`byeWeekLogic.ts`)
+Note: each player's bye week is still tracked (`Player.bye`, extracted directly
+from each player's own PDF row rather than the separate bye-week side table,
+since that table's layout doesn't extract cleanly through `pdfplumber`) and
+shown as a plain "BYE N" tag in My Roster and Available Players. An earlier
+version of this session also added a 3+-on-one-week stack warning banner and
+an inline "would make N on bye wk W" flag; both were removed by request as
+unwanted UI clutter. If bye-stack warnings come back in a future session,
+they're straightforward to re-add against the existing `bye` field.
 
-Every player's bye week (1-18, or `0` for unknown/free agent) was extracted
-directly from each player's own PDF row rather than the separate bye-week side
-table, since the side table's layout doesn't extract cleanly through
-`pdfplumber` — cross-checked for consistency across all 32 teams before being
-written into `players.ts`. `BYE_STACK_THRESHOLD = 3`: My Roster shows a warning
-banner for any bye week with 3+ rostered players, and Available Players flags
-a candidate player with "Would make N on bye wk W" if drafting them would hit
-that threshold. This is purely informational for the user - **it does not
-affect CPU drafting logic at all**.
+## Draft History & Stats (`DraftHistoryScreen.tsx`)
+
+Every completed draft is logged (`draftHistoryStorage.ts`, `localStorage`,
+best-effort like everything else in this section) as a snapshot: which slot
+you drafted from, your full final roster, and — importantly — **which players
+were on your favorites list at the moment the draft finished**, not your
+current list. Favorites drift over time, so judging an old draft against
+today's list would misrepresent it; each entry carries its own snapshot for
+that reason (`favoriteIdsAtCompletion` in `DraftHistoryEntry`).
+
+Logging happens via `DraftHistoryLogger.tsx`, a component mounted once at the
+app root that watches `state.status` and fires exactly once per completion
+(guarded with a ref that resets whenever status leaves `'complete'`, so
+neither re-renders nor starting a fresh draft double-log or skip an entry).
+
+`draftHistoryStats.ts` aggregates the raw log into what the screen shows —
+covered by `sim/testDraftHistory.ts` (15 assertions against synthetic data,
+including a tie-breaking most-drafted-slot case and an entry with zero
+favorites set, which correctly excludes itself from capture-rate averages
+rather than counting as a 0%):
+
+- **Summary cards**: total drafts completed, most-drafted slot, and an overall
+  favorites capture rate (aggregated across every favorited-at-the-time
+  instance across all drafts — not an average of per-draft percentages, which
+  would over-weight drafts where you'd favorited very few players).
+- **By draft slot**: times drafted and average capture rate per slot — this is
+  the "real" counterpart to `SlotOddsAnalyzer.tsx`'s simulated version. Over
+  enough drafts, worth comparing the two: if reality consistently diverges
+  from the simulation, that's a signal the CPU logic doesn't quite match how
+  you actually draft in practice.
+- **By favorite player**: every player you've ever favorited, how many of
+  those drafts they landed on your roster, and the resulting rate — "you've
+  gotten Bijan in 6 of 10 drafts" style stats.
+- **Past drafts list**: chronological, expandable to the full roster for that
+  draft, with a ★ marking which slots were favorites at the time.
+- **Clear all history** with a confirm dialog, capped at 200 stored entries
+  (`MAX_HISTORY_ENTRIES`) so localStorage never grows unbounded.
+
+Reachable from the Setup screen (next to Rankings & Favorites) and from the
+completion screen ("View stats") right after finishing a draft.
 
 ## "Check my odds from this slot" (`SlotOddsAnalyzer.tsx` + `oddsWorker.ts`)
 

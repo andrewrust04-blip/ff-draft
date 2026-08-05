@@ -2,15 +2,12 @@ import { useDraft } from '../state/DraftContext';
 import { PositionBadge } from './PositionBadge';
 import { STARTING_SLOTS, BENCH_SLOTS } from '../types';
 import { countByPosition } from '../draft/rosterLogic';
-import { getByeStackWarnings } from '../draft/byeWeekLogic';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { AlertTriangle } from 'lucide-react';
 
 export function MyRoster() {
   const { state } = useDraft();
   const myTeam = state.teams[state.userTeamIndex];
   const counts = countByPosition(myTeam.roster);
-  const byeWarnings = getByeStackWarnings(myTeam.roster);
   const isMobile = useIsMobile();
 
   return (
@@ -45,34 +42,6 @@ export function MyRoster() {
           <CountBadge label="TE" value={counts.TE} />
         </div>
       </div>
-
-      {byeWarnings.length > 0 && (
-        <div style={{ padding: isMobile ? '8px 10px 0' : '10px 12px 0' }}>
-          {byeWarnings.map((w) => (
-            <div
-              key={w.week}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 7,
-                padding: '7px 10px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--warning)',
-                background: 'var(--warning-glow)',
-                marginBottom: 6,
-                fontSize: 12,
-                color: 'var(--warning)',
-                fontWeight: 600,
-              }}
-            >
-              <AlertTriangle size={14} strokeWidth={2.4} />
-              <span>
-                {w.count} players on bye week {w.week}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
 
       <div style={{ overflowY: 'auto', flex: 1, padding: isMobile ? '6px 10px 12px' : '8px 12px 16px' }}>
         <SlotGroup label="Starters" slots={STARTING_SLOTS} roster={myTeam.roster} />
